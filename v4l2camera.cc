@@ -114,11 +114,12 @@ static v8::Handle<v8::Value> V4l2CameraToRGB(const v8::Arguments& args)
   camera_t* camera = static_cast<camera_t*>(xcamera->Value());
   uint8_t* rgb = yuyv2rgb(camera->head.start, camera->width, camera->height);
   int size = camera->width * camera->height * 3;
-  v8::Local<v8::Object> ret = v8::Object::New();
-  v8::ExternalArrayType type = v8::kExternalUnsignedByteArray;
-  ret->SetIndexedPropertiesToExternalArrayData(rgb, type, size);
-  ret->Set(v8::String::NewSymbol("length"), v8::Integer::New(size));
-  return scope.Close(ret);
+  v8::Handle<v8::Object> ret  = v8::Array::New(size);
+  for (int i = 0; i < size; i++) {
+    ret->Set(i, v8::Integer::NewFromUnsigned(rgb[i]));
+  }
+  free(rgb);
+  return ret;
 }
 
 static void Init(v8::Handle<v8::Object> exports)

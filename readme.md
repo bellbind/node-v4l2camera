@@ -21,7 +21,7 @@ npm install
 
 `var v4l2camera = require("v4l2camera");`
 
-see: example.js
+see: example.js (required "pngjs")
 
 ## API
 

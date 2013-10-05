@@ -1,10 +1,9 @@
 var http = require("http");
-var fs = require("fs");
 var pngjs = require("pngjs");
 var v4l2camera = require("./build/Release/v4l2camera");
 
 var server = http.createServer(function (req, res) {
-    console.log(req.url);
+    //console.log(req.url);
     if (req.url === "/") {
         res.writeHead(200, {
             "content-type": "text/html;charset=utf-8",
@@ -25,8 +24,7 @@ var server = http.createServer(function (req, res) {
             "cache-control": "no-cache",
         });
         var png = toPng();
-        png.pack().pipe(res);
-        return;
+        return png.pack().pipe(res);
     }
 });
 server.listen(3000);
