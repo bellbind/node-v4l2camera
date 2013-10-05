@@ -1,5 +1,5 @@
 
-var v4l2camera = require("./build/Release/v4l2camera");
+var v4l2camera = require("../build/Release/v4l2camera");
 
 var fs = require("fs");
 var png = require("png");
