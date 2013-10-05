@@ -76,11 +76,11 @@ static void V4l2CameraCaptureCB(uv_poll_t* handle, int status, int events)
   camera_t* camera = static_cast<camera_t*>(xcamera->Value());
   
   camera_capture(camera);
-  v8::Local<v8::Value> argv[0];
-  data->callback->Call(thisObj, 0, argv);
+  data->callback->Call(thisObj, 0, NULL);
   data->thisObj.Dispose();
   data->callback.Dispose();
   delete data;
+  uv_unref(reinterpret_cast<uv_handle_t*>(handle));
   delete handle;
 }
 
@@ -100,7 +100,7 @@ static v8::Handle<v8::Value> V4l2CameraCapture(const v8::Arguments& args)
   handle->data = data;
   uv_poll_init(uv_default_loop(), handle, camera->fd);
   uv_poll_start(handle, UV_READABLE, V4l2CameraCaptureCB);
-
+  uv_ref(reinterpret_cast<uv_handle_t*>(handle));
   return scope.Close(v8::Undefined());
 }
 
