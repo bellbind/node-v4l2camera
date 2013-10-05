@@ -35,7 +35,7 @@ var script = function () {
         (function load() {
             var img = new Image();
             img.addEventListener("load", function loaded(ev) {
-                cam.parentNode.insertBefore(img);
+                cam.parentNode.insertBefore(img, cam);
                 cam.parentNode.removeChild(cam);
                 img.id = "cam";
                 cam = img;
