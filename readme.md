@@ -26,7 +26,7 @@ cd ../..
 
 `var v4l2camera = require("v4l2camera");`
 
-see: example.js (required "pngjs")
+see: examples/*.js (required "pngjs" or native "png")
 
 ## API
 
