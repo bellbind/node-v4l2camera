@@ -1,5 +1,5 @@
 {"name": "v4l2camera",
- "main": "/build/Release/v4l2camera",
+ "main": "./build/Release/v4l2camera",
  "version": "0.0.1",
  "repository": {"type": "git", 
                 "url": "http://github.com/bellbind/node-v4l2camera.git"},

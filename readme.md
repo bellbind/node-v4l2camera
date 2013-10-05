@@ -9,8 +9,13 @@ WARNING: it is an experimetal work. error folow is not implemented yet.
 On linux:
 
 ```bash
-cd node_modules/node-v4l2camera
+cd myproject
+mkdir -p node_modules
+cd node_modules
+git clone https://github.com/bellbind/node-v4l2camera.git v4l2camera
+cd v4l2camera
 npm install
+cd ../..
 ```
 
 "build/Release/v4l2camera.node" is exist after the build.
