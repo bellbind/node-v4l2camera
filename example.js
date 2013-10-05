@@ -17,7 +17,10 @@ var cam = new v4l2camera.V4l2Camera("/dev/video0", 352, 288);
 cam.start();
 times(6, cam.capture.bind(cam), function () {
     var rgb = cam.toRGB();
-    var png = new pngjs.PNG({width: cam.width, height: cam.height});
+    var png = new pngjs.PNG({
+        width: cam.width, height: cam.height,
+        deflateLevel: 1, deflateStrategy: 1,
+    });
     var size = cam.width * cam.height;
     for (var i = 0; i < size; i++) {
         png.data[i * 4 + 0] = rgb[i * 3 + 0];
