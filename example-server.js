@@ -1,0 +1,68 @@
+var http = require("http");
+var fs = require("fs");
+var pngjs = require("pngjs");
+var v4l2camera = require("./build/Release/v4l2camera");
+
+var server = http.createServer(function (req, res) {
+    console.log(req.url);
+    if (req.url === "/") {
+        res.writeHead(200, {
+            "content-type": "text/html;charset=utf-8",
+        });
+        res.end([
+            "<!doctype html>",
+            "<html><head><meta charset='utf-8'/>",
+            "<script>(", script.toString(), ")()</script>",
+            "</head><body>",
+            "<img id='cam' width='352' height='288' />",
+            "</body></html>",
+        ].join(""));
+        return;
+    }
+    if (req.url.match(/^\/.+\.png$/)) {
+        res.writeHead(200, {
+            "content-type": "image/png",
+            "cache-control": "no-cache",
+        });
+        var png = toPng();
+        png.pack().pipe(res);
+        return;
+    }
+});
+server.listen(3000);
+
+var script = function () {
+    window.addEventListener("load", function (ev) {
+        var cam = document.getElementById("cam");
+        (function load() {
+            var img = new Image();
+            img.addEventListener("load", function loaded(ev) {
+                cam.parentNode.insertBefore(img);
+                cam.parentNode.removeChild(cam);
+                img.id = "cam";
+                cam = img;
+                load();
+            }, false);
+            img.src = "/" + Date.now() + ".png";
+        })();
+    }, false);
+};
+
+var toPng = function () {
+    var rgb = cam.toRGB();
+    var png = new pngjs.PNG({width: cam.width, height: cam.height});
+    var size = cam.width * cam.height;
+    for (var i = 0; i < size; i++) {
+        png.data[i * 4 + 0] = rgb[i * 3 + 0];
+        png.data[i * 4 + 1] = rgb[i * 3 + 1];
+        png.data[i * 4 + 2] = rgb[i * 3 + 2];
+        png.data[i * 4 + 3] = 255;
+    }
+    return png;
+};
+
+var cam = new v4l2camera.V4l2Camera("/dev/video0", 352, 288);
+cam.start();
+cam.capture(function loop() {
+    cam.capture(loop);
+});
