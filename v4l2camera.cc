@@ -8,11 +8,13 @@
 #include <string>
 #include <sstream>
 
-struct log_context {
+namespace {
+
+struct LogContext {
   std::string msg;
 };
 
-static void log_record(camera_log_t type, const char* msg, void* pointer)
+static void logRecord(camera_log_t type, const char* msg, void* pointer)
 {
   std::stringstream ss;
   switch (type) {
@@ -26,31 +28,31 @@ static void log_record(camera_log_t type, const char* msg, void* pointer)
     ss << "CAMERA INFO [" << msg << "]";
     break;
   }
-  static_cast<log_context*>(pointer)->msg = ss.str();
+  static_cast<LogContext*>(pointer)->msg = ss.str();
 }
 
-static v8::Handle<v8::Value> throw_error(const char* msg)
+static v8::Handle<v8::Value> throwError(const char* msg)
 {
   auto message = v8::String::New(msg);
   return v8::ThrowException(v8::Exception::Error(message));
 }
 
-static v8::Handle<v8::Value> throw_error(camera_t* camera)
+static v8::Handle<v8::Value> throwError(camera_t* camera)
 {
-  auto ctx = static_cast<log_context*>(camera->context.pointer);
-  return throw_error(ctx->msg.c_str());
+  auto ctx = static_cast<LogContext*>(camera->context.pointer);
+  return throwError(ctx->msg.c_str());
 }
 
-static void V4l2CameraDelete(v8::Persistent<v8::Value> handle, void* param)
+static void cameraDelete(v8::Persistent<v8::Value> handle, void* param)
 {
   auto camera = static_cast<camera_t*>(param);
   camera_finish(camera);
-  delete static_cast<log_context*>(camera->context.pointer);
+  delete static_cast<LogContext*>(camera->context.pointer);
   camera_close(camera);
   handle.Dispose();
 }
 
-static v8::Handle<v8::Value> V4l2CameraNew(const v8::Arguments& args)
+static v8::Handle<v8::Value> cameraNew(const v8::Arguments& args)
 {
   v8::HandleScope scope;
   if (args.Length() < 3) {
@@ -64,41 +66,41 @@ static v8::Handle<v8::Value> V4l2CameraNew(const v8::Arguments& args)
   uint32_t height = args[2]->Uint32Value();
   
   auto camera = camera_open(device, width, height);
-  if (!camera) return throw_error(strerror(errno));
-  camera->context.pointer = new log_context;
-  camera->context.log = &log_record;
+  if (!camera) return throwError(strerror(errno));
+  camera->context.pointer = new LogContext;
+  camera->context.log = &logRecord;
   if (!camera_init(camera)) {
-    auto err = throw_error(camera);
-    delete static_cast<log_context*>(camera->context.pointer);
+    auto err = throwError(camera);
+    delete static_cast<LogContext*>(camera->context.pointer);
     return err;
   }
   auto thisObj = args.This();
   thisObj->SetInternalField(0, v8::External::New(camera));
   auto holder = v8::Persistent<v8::Object>::New(thisObj);
-  holder.MakeWeak(camera, V4l2CameraDelete);
+  holder.MakeWeak(camera, cameraDelete);
   thisObj->Set(v8::String::NewSymbol("device"), args[0]);
   thisObj->Set(v8::String::NewSymbol("width"), args[1]);
   thisObj->Set(v8::String::NewSymbol("height"), args[2]);
   return scope.Close(thisObj);
 }
 
-static v8::Handle<v8::Value> V4l2CameraStart(const v8::Arguments& args)
+static v8::Handle<v8::Value> cameraStart(const v8::Arguments& args)
 {
   v8::HandleScope scope;
   auto thisObj = args.This();
   auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
   auto camera = static_cast<camera_t*>(xcamera->Value());
-  if (!camera_start(camera)) return throw_error(camera);
+  if (!camera_start(camera)) return throwError(camera);
   return scope.Close(thisObj);
 }
 
-static v8::Handle<v8::Value> V4l2CameraStop(const v8::Arguments& args)
+static v8::Handle<v8::Value> cameraStop(const v8::Arguments& args)
 {
   v8::HandleScope scope;
   auto thisObj = args.This();
   auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
   auto camera = static_cast<camera_t*>(xcamera->Value());
-  if (!camera_stop(camera)) throw_error(camera);
+  if (!camera_stop(camera)) return throwError(camera);
   return scope.Close(thisObj);
 }
 
@@ -107,7 +109,7 @@ struct CaptureData {
   v8::Persistent<v8::Function> callback;
 };
 
-static void V4l2CameraCaptureCB(uv_poll_t* handle, int status, int events)
+static void cameraCaptureCB(uv_poll_t* handle, int status, int events)
 {
   uv_poll_stop(handle);
   v8::HandleScope scope;
@@ -129,7 +131,7 @@ static void V4l2CameraCaptureCB(uv_poll_t* handle, int status, int events)
 }
 
 
-static v8::Handle<v8::Value> V4l2CameraCapture(const v8::Arguments& args)
+static v8::Handle<v8::Value> cameraCapture(const v8::Arguments& args)
 {
   v8::HandleScope scope;
   auto data = new CaptureData;
@@ -143,13 +145,13 @@ static v8::Handle<v8::Value> V4l2CameraCapture(const v8::Arguments& args)
   uv_poll_t* handle = new uv_poll_t;
   handle->data = data;
   uv_poll_init(uv_default_loop(), handle, camera->fd);
-  uv_poll_start(handle, UV_READABLE, V4l2CameraCaptureCB);
+  uv_poll_start(handle, UV_READABLE, cameraCaptureCB);
   uv_ref(reinterpret_cast<uv_handle_t*>(handle));
   return scope.Close(v8::Undefined());
 }
 
 
-static v8::Handle<v8::Value> V4l2CameraToRGB(const v8::Arguments& args)
+static v8::Handle<v8::Value> cameraToRGB(const v8::Arguments& args)
 {
   v8::HandleScope scope;
   auto thisObj = args.This();
@@ -165,22 +167,24 @@ static v8::Handle<v8::Value> V4l2CameraToRGB(const v8::Arguments& args)
   return ret;
 }
 
-static void Init(v8::Handle<v8::Object> exports)
+static void moduleInit(v8::Handle<v8::Object> exports)
 {
   v8::HandleScope scope;  
-  auto clazz = v8::FunctionTemplate::New(V4l2CameraNew);
-  clazz->SetClassName(v8::String::NewSymbol("V4l2Camera"));
+  auto clazz = v8::FunctionTemplate::New(cameraNew);
+  clazz->SetClassName(v8::String::NewSymbol("Camera"));
   clazz->InstanceTemplate()->SetInternalFieldCount(1);
   auto proto = clazz->PrototypeTemplate();
   proto->Set(v8::String::NewSymbol("start"),
-             v8::FunctionTemplate::New(V4l2CameraStart)->GetFunction());
+             v8::FunctionTemplate::New(cameraStart)->GetFunction());
   proto->Set(v8::String::NewSymbol("stop"),
-             v8::FunctionTemplate::New(V4l2CameraStop)->GetFunction());
+             v8::FunctionTemplate::New(cameraStop)->GetFunction());
   proto->Set(v8::String::NewSymbol("capture"),
-             v8::FunctionTemplate::New(V4l2CameraCapture)->GetFunction());
+             v8::FunctionTemplate::New(cameraCapture)->GetFunction());
   proto->Set(v8::String::NewSymbol("toRGB"),
-             v8::FunctionTemplate::New(V4l2CameraToRGB)->GetFunction());
+             v8::FunctionTemplate::New(cameraToRGB)->GetFunction());
   auto ctor = v8::Persistent<v8::Function>::New(clazz->GetFunction());
-  exports->Set(v8::String::NewSymbol("V4l2Camera"), ctor);
+  exports->Set(v8::String::NewSymbol("Camera"), ctor);
 }
-NODE_MODULE(v4l2camera, Init);
+NODE_MODULE(v4l2camera, moduleInit);
+
+}

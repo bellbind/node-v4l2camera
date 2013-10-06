@@ -23,10 +23,10 @@ var server = http.createServer(function (req, res) {
             "content-type": "image/png",
             "cache-control": "no-cache",
         });
-        new png.Png(Buffer(cam.toRGB()), cam.width, cam.height, "rgb").encode(
-            function (buf) {
-                res.end(buf);
-            });
+        var rgb = Buffer(cam.toRGB());
+        new png.Png(rgb, cam.width, cam.height, "rgb").encode(function (buf) {
+            res.end(buf);
+        });
         return;
     }
 });
@@ -48,11 +48,7 @@ var script = function () {
     }, false);
 };
 
-var toPng = function () {
-
-};
-
-var cam = new v4l2camera.V4l2Camera("/dev/video0", 352, 288);
+var cam = new v4l2camera.Camera("/dev/video0", 352, 288);
 cam.start();
 cam.capture(function loop() {
     cam.capture(loop);

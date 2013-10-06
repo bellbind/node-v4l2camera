@@ -1,12 +1,12 @@
 # node-v4l2camera
 
-Capturing image from USB(UVC) webcam on linux.
+Capturing images from USB(UVC) webcam on linux machines.
 
 WARNING: it is an experimetal work. error folow is not implemented yet.
 
 ## Install
 
-On linux:
+On linux machine:
 
 ```bash
 cd myproject
@@ -30,7 +30,7 @@ see: examples/*.js (required "pngjs" or native "png")
 
 ## API
 
-- `var cam = new v4l2camera.V4l2Camera(device, width, height)`
+- `var cam = new v4l2camera.Camera(device, width, height)`
 - `cam.start()`
 - `cam.stop()`
 - `cam.capture(afterCaptured)`: call `cam.toRGB()` in `afterCaptured()` 
