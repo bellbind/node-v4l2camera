@@ -1,17 +1,13 @@
 #include "capture.h"
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 
+#include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <asm/types.h>
 #include <linux/videodev2.h>
-
-#include <unistd.h>
-#include <stdbool.h>
 
 static void log_stderr(camera_log_t type, const char* msg, void* pointer) {
   switch (type) {
@@ -52,7 +48,7 @@ camera_t* camera_open(const char * device, uint32_t width, uint32_t height)
   int fd = open(device, O_RDWR | O_NONBLOCK, 0);
   if (fd == -1) return NULL;
   
-  camera_t* camera = (camera_t*) malloc(sizeof (camera_t));
+  camera_t* camera = malloc(sizeof (camera_t));
   camera->fd = fd;
   camera->width = width;
   camera->height = height;
@@ -114,8 +110,7 @@ bool camera_init(camera_t* camera) {
   if (xioctl(camera->fd, VIDIOC_REQBUFS, &req) == -1)
     return error(camera, "VIDIOC_REQBUFS");
   camera->buffer_count = req.count;
-  camera->buffers = 
-    (camera_buffer_t*) calloc(req.count, sizeof (camera_buffer_t));
+  camera->buffers = calloc(req.count, sizeof (camera_buffer_t));
 
   size_t buf_max = 0;
   for (size_t i = 0; i < camera->buffer_count; i++) {
@@ -130,7 +125,7 @@ bool camera_init(camera_t* camera) {
     }
     if (buf.length > buf_max) buf_max = buf.length;
     camera->buffers[i].length = buf.length;
-    camera->buffers[i].start = (uint8_t*)
+    camera->buffers[i].start = 
       mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, 
            camera->fd, buf.m.offset);
     if (camera->buffers[i].start == MAP_FAILED) {
@@ -138,7 +133,7 @@ bool camera_init(camera_t* camera) {
       return error(camera, "mmap");
     }
   }
-  camera->head.start = (uint8_t*) calloc(buf_max, sizeof (uint8_t));
+  camera->head.start = calloc(buf_max, sizeof (uint8_t));
   return true;
 }
 
@@ -202,27 +197,52 @@ bool camera_capture(camera_t* camera)
 }
 
 
-static int minmax(int min, int v, int max)
+static inline int minmax(int min, int v, int max)
 {
   return (v < min) ? min : (max < v) ? max : v;
 }
-
+static inline uint8_t yuv2r(int y, int u, int v)
+{
+  return minmax(0, (y + 359 * v) >> 8, 255);
+}
+static inline uint8_t yuv2g(int y, int u, int v)
+{
+  return minmax(0, (y + 88 * v - 183 * u) >> 8, 255);
+}
+static inline uint8_t yuv2b(int y, int u, int v)
+{
+  return minmax(0, (y + 454 * u) >> 8, 255);
+}
 uint8_t* yuyv2rgb(uint8_t* yuyv, uint32_t width, uint32_t height)
 {
-  uint8_t* rgb = (uint8_t*) calloc(width * height * 3, sizeof (uint8_t));
+  uint8_t* rgb = calloc(width * height * 3, sizeof (uint8_t));
+  uint8_t* rgbp = rgb;
   for (size_t i = 0; i < height; i++) {
     for (size_t j = 0; j < width; j += 2) {
+#if 0
       size_t index = i * width + j;
       int y0 = yuyv[index * 2 + 0] << 8;
       int u = yuyv[index * 2 + 1] - 128;
       int y1 = yuyv[index * 2 + 2] << 8;
       int v = yuyv[index * 2 + 3] - 128;
-      rgb[index * 3 + 0] = minmax(0, (y0 + 359 * v) >> 8, 255);
-      rgb[index * 3 + 1] = minmax(0, (y0 + 88 * v - 183 * u) >> 8, 255);
-      rgb[index * 3 + 2] = minmax(0, (y0 + 454 * u) >> 8, 255);
-      rgb[index * 3 + 3] = minmax(0, (y1 + 359 * v) >> 8, 255);
-      rgb[index * 3 + 4] = minmax(0, (y1 + 88 * v - 183 * u) >> 8, 255);
-      rgb[index * 3 + 5] = minmax(0, (y1 + 454 * u) >> 8, 255);
+      rgb[index * 3 + 0] = yuv2r(y0, u, v);
+      rgb[index * 3 + 1] = yuv2g(y0, u, v);
+      rgb[index * 3 + 2] = yuv2b(y0, u, v);
+      rgb[index * 3 + 3] = yuv2r(y1, u, v);
+      rgb[index * 3 + 4] = yuv2g(y1, u, v);
+      rgb[index * 3 + 5] = yuv2b(y1, u, v);
+#else
+      int y0 = *yuyv++ << 8;
+      int u = *yuyv++ - 128;
+      int y1 = *yuyv++ << 8;
+      int v = *yuyv++ - 128;
+      *rgbp++ = yuv2r(y0, u, v);
+      *rgbp++ = yuv2g(y0, u, v);
+      *rgbp++ = yuv2b(y0, u, v);
+      *rgbp++ = yuv2r(y1, u, v);
+      *rgbp++ = yuv2g(y1, u, v);
+      *rgbp++ = yuv2b(y1, u, v);
+#endif
     }
   }
   return rgb;

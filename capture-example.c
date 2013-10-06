@@ -2,14 +2,13 @@
  * capturing example from UVC cam
  * requires: libjpeg-dev
  * build:
- *   gcc -Wall -Wextra -c capture.c -o capture.o
- *   gcc -Wall -Wextra -std=c99 -c capture-example.c -o capture-example.o
- *   g++ -Wall -Wextra capture.o capture-example.o -ljpeg -o capture
+ *   gcc -std=c11 -Wall -Wextra -c capture.c -o capture.o
+ *   gcc -std=c11 -Wall -Wextra -c capture-example.c -o capture-example.o
+ *   gcc -Wall -Wextra capture.o capture-example.o -ljpeg -o capture
  */
 
 #include "capture.h"
 
-#include <stdlib.h>
 #include <stdio.h>
 
 #include <sys/time.h>
@@ -32,10 +31,9 @@ bool camera_frame(camera_t* camera, struct timeval timeout) {
 void 
 jpeg(FILE* dest, uint8_t* rgb, uint32_t width, uint32_t height, int quality)
 {
-  JSAMPARRAY image;
-  image = (JSAMPARRAY) calloc(height, sizeof (JSAMPROW));
+  JSAMPARRAY image = calloc(height, sizeof (JSAMPROW));
   for (size_t i = 0; i < height; i++) {
-    image[i] = (JSAMPROW) calloc(width * 3, sizeof (JSAMPLE));
+    image[i] = calloc(width * 3, sizeof (JSAMPLE));
     for (size_t j = 0; j < width; j++) {
       image[i][j * 3 + 0] = rgb[(i * width + j) * 3 + 0];
       image[i][j * 3 + 1] = rgb[(i * width + j) * 3 + 1];
@@ -48,7 +46,6 @@ jpeg(FILE* dest, uint8_t* rgb, uint32_t width, uint32_t height, int quality)
   compress.err = jpeg_std_error(&error);
   jpeg_create_compress(&compress);
   jpeg_stdio_dest(&compress, dest);
-  
   compress.image_width = width;
   compress.image_height = height;
   compress.input_components = 3;
