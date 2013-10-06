@@ -2,7 +2,7 @@
  * capturing example from UVC cam
  * requires: libjpeg-dev
  * build:
- *   g++ -Wall -Wextra -c capture.c -o capture.o
+ *   gcc -Wall -Wextra -c capture.c -o capture.o
  *   gcc -Wall -Wextra -std=c99 -c capture-example.c -o capture-example.o
  *   g++ -Wall -Wextra capture.o capture-example.o -ljpeg -o capture
  */
@@ -18,13 +18,13 @@
 
 #include <jpeglib.h>
 
-int camera_frame(camera_t* camera, struct timeval timeout) {
+bool camera_frame(camera_t* camera, struct timeval timeout) {
   fd_set fds;
   FD_ZERO(&fds);
   FD_SET(camera->fd, &fds);
   int r = select(camera->fd + 1, &fds, 0, 0, &timeout);
   if (r == -1) exit(EXIT_FAILURE);
-  if (r == 0) return FALSE;
+  if (r == 0) return false;
   return camera_capture(camera);
 }
 
@@ -69,8 +69,9 @@ jpeg(FILE* dest, uint8_t* rgb, uint32_t width, uint32_t height, int quality)
 int main()
 {
   camera_t* camera = camera_open("/dev/video0", 352, 288);
-  camera_init(camera);
-  camera_start(camera);
+  if (!camera) return EXIT_FAILURE;
+  if (!camera_init(camera)) goto error_init;
+  if (!camera_start(camera)) goto error_start;
   
   struct timeval timeout;
   timeout.tv_sec = 1;
@@ -92,4 +93,9 @@ int main()
   camera_finish(camera);
   camera_close(camera);
   return 0;
+ error_start:
+  camera_finish(camera);
+ error_init:
+  camera_close(camera);
+  return EXIT_FAILURE;  
 }
