@@ -2,11 +2,53 @@
 
 Capturing images from USB(UVC) webcam on linux machines.
 
-WARNING: it is an experimetal work. error folow is not implemented yet.
+## Requirements
+
+- node >= 0.10.x
+- video4linux2 headers
+- c and c++ compiler with -std=c11 and std=c++11
+    - gcc >= 4.7
 
 ## Install
 
-On linux machine:
+On linux machines:
+
+```bash
+npm install v4l2camera
+```
+
+## Usage
+
+```js
+var v4l2camera = require("v4l2camera");
+
+var cam = new v4l2camera.Camera("/dev/video0", 352, 288);
+cam.start();
+cam.capture(function () {
+  var rgb = cam.toRGB();
+  require("fs").writeFileSync("result.raw", Buffer(rgb));
+  cam.stop();
+});
+```
+
+For more detail see: examples/*.js (required "pngjs" or native "png" modules)
+
+## API
+
+- `var cam = new v4l2camera.Camera(device, width, height)`
+- `cam.start()`
+- `cam.stop()`
+- `cam.capture(afterCaptured)`: call `cam.toRGB()` in `afterCaptured()` 
+- `cam.toRGB()` => Array for each 8bit color lines RGBRGB...
+- `cam.toYUYV()` => Array for each 8bit color lines YUYVYUYV...
+- `cam.device`
+- `cam.width`
+- `cam.height`
+
+
+## Build for Development
+
+On linux machines:
 
 ```bash
 cd myproject
@@ -20,21 +62,12 @@ cd ../..
 
 "build/Release/v4l2camera.node" is exist after the build.
 
-(not yet registered to npm registry)
+## Tested Environments
 
-## Usage
+- Ubuntu raring armhf on BeagleBone Black with Buffalo BSW13K10H
+- Ubuntu raring amd64 on Acer Aspire One with its facecam
 
-`var v4l2camera = require("v4l2camera");`
+## Licenses
 
-see: examples/*.js (required "pngjs" or native "png")
-
-## API
-
-- `var cam = new v4l2camera.Camera(device, width, height)`
-- `cam.start()`
-- `cam.stop()`
-- `cam.capture(afterCaptured)`: call `cam.toRGB()` in `afterCaptured()` 
-- `cam.toRGB()` => array like object for each 8bit color lines RGBRGB...
-- `cam.device`
-- `cam.width`
-- `cam.height`
+[MIT](http://opensource.org/licenses/MIT) and 
+[LGPL-3.0](http://opensource.org/licenses/LGPL-3.0) dual
