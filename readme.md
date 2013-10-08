@@ -24,7 +24,7 @@ var v4l2camera = require("v4l2camera");
 
 var cam = new v4l2camera.Camera("/dev/video0", 352, 288);
 cam.start();
-cam.capture(function () {
+cam.capture(function (success) {
   var rgb = cam.toRGB();
   require("fs").writeFileSync("result.raw", Buffer(rgb));
   cam.stop();
@@ -38,9 +38,9 @@ For more detail see: examples/*.js (required "pngjs" or native "png" modules)
 - `var cam = new v4l2camera.Camera(device, width, height)`
 - `cam.start()`
 - `cam.stop()`
-- `cam.capture(afterCaptured)`: call `cam.toRGB()` in `afterCaptured()` 
-- `cam.toRGB()` => Array for each 8bit color lines RGBRGB...
+- `cam.capture(afterCaptured)`: call `cam.toRGB()` in `afterCaptured(true)` 
 - `cam.toYUYV()` => Array for each 8bit color lines YUYVYUYV...
+- `cam.toRGB()` => Array for each 8bit color lines RGBRGB...
 - `cam.device`
 - `cam.width`
 - `cam.height`

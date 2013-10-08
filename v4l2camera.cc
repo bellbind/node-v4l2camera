@@ -2,6 +2,7 @@
 #include <node.h>
 #include <v8.h>
 #include <uv.h>
+
 #include <errno.h>
 #include <string.h>
 
@@ -13,7 +14,6 @@ namespace {
 struct LogContext {
   std::string msg;
 };
-
 static void logRecord(camera_log_t type, const char* msg, void* pointer)
 {
   std::stringstream ss;
@@ -56,9 +56,8 @@ static v8::Handle<v8::Value> cameraNew(const v8::Arguments& args)
 {
   v8::HandleScope scope;
   if (args.Length() < 3) {
-    auto msg = v8::String::New("Wrong number of arguments");
-    v8::ThrowException(v8::Exception::TypeError(msg));
-    return scope.Close(v8::Undefined());
+    auto msg = v8::String::New("3 arguments required: device, width, height");
+    return v8::ThrowException(v8::Exception::TypeError(msg));
   }
   v8::String::Utf8Value u8device(args[0]->ToString());
   const char* device = *u8device;
@@ -108,7 +107,6 @@ struct CaptureData {
   v8::Persistent<v8::Object> thisObj;
   v8::Persistent<v8::Function> callback;
 };
-
 static void cameraCaptureClose(uv_handle_t* handle) {
   delete handle;
 }
@@ -131,8 +129,6 @@ static void cameraCaptureCB(uv_poll_t* handle, int status, int events)
   data->callback.Dispose();
   delete data;
 }
-
-
 static v8::Handle<v8::Value> cameraCapture(const v8::Arguments& args)
 {
   v8::HandleScope scope;
@@ -194,11 +190,11 @@ static void moduleInit(v8::Handle<v8::Object> exports)
              v8::FunctionTemplate::New(cameraStop)->GetFunction());
   proto->Set(v8::String::NewSymbol("capture"),
              v8::FunctionTemplate::New(cameraCapture)->GetFunction());
-  proto->Set(v8::String::NewSymbol("toRGB"),
-             v8::FunctionTemplate::New(cameraToRGB)->GetFunction());
   proto->Set(v8::String::NewSymbol("toYUYV"),
              v8::FunctionTemplate::New(cameraToYUYV)->GetFunction());
-  auto ctor = v8::Persistent<v8::Function>::New(clazz->GetFunction());
+  proto->Set(v8::String::NewSymbol("toRGB"),
+             v8::FunctionTemplate::New(cameraToRGB)->GetFunction());
+  auto ctor = v8::Local<v8::Function>::New(clazz->GetFunction());
   exports->Set(v8::String::NewSymbol("Camera"), ctor);
 }
 NODE_MODULE(v4l2camera, moduleInit);
