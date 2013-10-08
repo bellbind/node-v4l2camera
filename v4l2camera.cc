@@ -109,15 +109,19 @@ struct CaptureData {
   v8::Persistent<v8::Function> callback;
 };
 
+static void cameraCaptureClose(uv_handle_t* handle) {
+  delete handle;
+}
 static void cameraCaptureCB(uv_poll_t* handle, int status, int events)
 {
-  uv_poll_stop(handle);
   v8::HandleScope scope;
   auto data = static_cast<CaptureData*>(handle->data);
+  uv_poll_stop(handle);
+  uv_close(reinterpret_cast<uv_handle_t*>(handle), cameraCaptureClose);
+  
   auto thisObj = v8::Local<v8::Object>::New(data->thisObj);
   auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
   auto camera = static_cast<camera_t*>(xcamera->Value());
-  
   bool captured = camera_capture(camera);
   v8::Local<v8::Value> argv[] = {
     v8::Local<v8::Value>::New(v8::Boolean::New(captured))
@@ -126,8 +130,6 @@ static void cameraCaptureCB(uv_poll_t* handle, int status, int events)
   data->thisObj.Dispose();
   data->callback.Dispose();
   delete data;
-  uv_unref(reinterpret_cast<uv_handle_t*>(handle));
-  delete handle;
 }
 
 
@@ -146,10 +148,22 @@ static v8::Handle<v8::Value> cameraCapture(const v8::Arguments& args)
   handle->data = data;
   uv_poll_init(uv_default_loop(), handle, camera->fd);
   uv_poll_start(handle, UV_READABLE, cameraCaptureCB);
-  uv_ref(reinterpret_cast<uv_handle_t*>(handle));
-  return scope.Close(v8::Undefined());
+  return v8::Undefined();
 }
 
+static v8::Handle<v8::Value> cameraToYUYV(const v8::Arguments& args)
+{
+  v8::HandleScope scope;
+  auto thisObj = args.This();
+  auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
+  auto camera = static_cast<camera_t*>(xcamera->Value());
+  int size = camera->width * camera->height * 2;
+  auto ret  = v8::Array::New(size);
+  for (int i = 0; i < size; i++) {
+    ret->Set(i, v8::Integer::NewFromUnsigned(camera->head.start[i]));
+  }
+  return scope.Close(ret);
+}
 
 static v8::Handle<v8::Value> cameraToRGB(const v8::Arguments& args)
 {
@@ -164,7 +178,7 @@ static v8::Handle<v8::Value> cameraToRGB(const v8::Arguments& args)
     ret->Set(i, v8::Integer::NewFromUnsigned(rgb[i]));
   }
   free(rgb);
-  return ret;
+  return scope.Close(ret);
 }
 
 static void moduleInit(v8::Handle<v8::Object> exports)
@@ -182,6 +196,8 @@ static void moduleInit(v8::Handle<v8::Object> exports)
              v8::FunctionTemplate::New(cameraCapture)->GetFunction());
   proto->Set(v8::String::NewSymbol("toRGB"),
              v8::FunctionTemplate::New(cameraToRGB)->GetFunction());
+  proto->Set(v8::String::NewSymbol("toYUYV"),
+             v8::FunctionTemplate::New(cameraToYUYV)->GetFunction());
   auto ctor = v8::Persistent<v8::Function>::New(clazz->GetFunction());
   exports->Set(v8::String::NewSymbol("Camera"), ctor);
 }
