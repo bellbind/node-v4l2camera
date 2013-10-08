@@ -6,7 +6,7 @@ Capturing images from USB(UVC) webcam on linux machines.
 
 - node >= 0.10.x
 - video4linux2 headers
-- c and c++ compiler with -std=c11 and std=c++11
+- c and c++ compiler with `-std=c11` and `-std=c++11`
     - gcc >= 4.7
 
 ## Install
@@ -38,9 +38,10 @@ For more detail see: examples/*.js (required "pngjs" or native "png" modules)
 - `var cam = new v4l2camera.Camera(device, width, height)`
 - `cam.start()`
 - `cam.stop()`
-- `cam.capture(afterCaptured)`: call `cam.toRGB()` in `afterCaptured(true)` 
-- `cam.toYUYV()` => Array for each 8bit color lines YUYVYUYV...
-- `cam.toRGB()` => Array for each 8bit color lines RGBRGB...
+- `cam.capture(afterCaptured)`: cache a current captured frame
+    - call `cam.toRGB()` in `afterCaptured(true)` callback
+- `cam.toYUYV()`: get the cached frame as 8bit int Array of pixels YUYVYUYV...
+- `cam.toRGB()`: get the cached frame as 8bit int Array of pixels RGBRGB...
 - `cam.device`
 - `cam.width`
 - `cam.height`
@@ -64,8 +65,8 @@ cd ../..
 
 ## Tested Environments
 
-- Ubuntu raring armhf on BeagleBone Black with Buffalo BSW13K10H
-- Ubuntu raring amd64 on Acer Aspire One with its facecam
+- Ubuntu raring armhf on BeagleBone Black with USB Buffalo BSW13K10H
+- Ubuntu raring amd64 on Acer Aspire One with its screen facecam
 
 ## Licenses
 
