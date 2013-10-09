@@ -45,6 +45,61 @@ bool camera_close(camera_t* camera);
 bool camera_capture(camera_t* camera);
 uint8_t* yuyv2rgb(uint8_t* yuyv, uint32_t width, uint32_t height);
 
+
+typedef enum {
+  CAMERA_CTRL_INTEGER = 1,
+  CAMERA_CTRL_BOOLEAN = 2,
+  CAMERA_CTRL_MENU = 3,
+  CAMERA_CTRL_BUTTON = 4,
+  CAMERA_CTRL_INTEGER64 = 5,
+  CAMERA_CTRL_CLASS = 6,
+  CAMERA_CTRL_STRING = 7,
+  CAMERA_CTRL_BITMASK = 8,
+  CAMERA_CTRL_INTEGER_MENU = 9,
+} camera_control_type_t;
+
+typedef union {
+  uint8_t name[32];
+  int64_t value;
+} camera_menu_t;
+  
+typedef struct {
+  size_t length;
+  camera_menu_t* head;
+} camera_menus_t;
+
+typedef struct {
+  uint32_t id;
+  uint8_t name[32];
+  struct {
+    unsigned disabled: 1;
+    unsigned grabbed: 1;
+    unsigned read_only: 1;
+    unsigned update: 1;
+    unsigned inactive: 1;
+    unsigned slider: 1;
+    unsigned write_only: 1;
+    unsigned volatile_value: 1;
+  } flags;
+  camera_control_type_t type;
+  int32_t max;
+  int32_t min;
+  int32_t step;
+  int32_t default_value;
+  camera_menus_t menus;
+} camera_control_t;
+
+typedef struct {
+  size_t length;
+  camera_control_t* head;
+} camera_controls_t;
+  
+
+camera_controls_t* camera_controls_new(camera_t* camera);
+void camera_controls_delete(camera_controls_t* controls);
+bool camera_control_get(camera_t* camera, uint32_t id, int32_t* value);
+bool camera_control_set(camera_t* camera, uint32_t id, int32_t value);
+
 #ifdef __cplusplus
 }
 #endif

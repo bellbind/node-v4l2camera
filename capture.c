@@ -247,3 +247,116 @@ uint8_t* yuyv2rgb(uint8_t* yuyv, uint32_t width, uint32_t height)
   }
   return rgb;
 }
+
+static void 
+camera_controls_menus(camera_t* camera, camera_control_t* control)
+{
+  switch (control->type) {
+  case CAMERA_CTRL_MENU:
+    control->menus.length = control->max + 1;
+    control->menus.head = 
+      calloc(control->menus.length, sizeof (camera_menu_t));
+    for (uint32_t mindex = 0; mindex < control->menus.length; mindex++) {
+      struct v4l2_querymenu qmenu;
+      memset(&qmenu, 0, sizeof qmenu);
+      qmenu.id = control->id;
+      qmenu.index = mindex;
+      if (ioctl(camera->fd, VIDIOC_QUERYMENU, &qmenu) == 0) {
+	memcpy(control->menus.head[mindex].name, qmenu.name, 
+	       sizeof qmenu.name);
+      }
+    }
+    return;
+  case CAMERA_CTRL_INTEGER_MENU:
+    control->menus.length = control->max + 1;
+    control->menus.head = 
+      calloc(control->menus.length, sizeof (camera_menu_t));
+    for (uint32_t mindex = 0; mindex < control->menus.length; mindex++) {
+      struct v4l2_querymenu qmenu;
+      memset(&qmenu, 0, sizeof qmenu);
+      qmenu.id = control->id;
+      qmenu.index = mindex;
+      if (ioctl(camera->fd, VIDIOC_QUERYMENU, &qmenu) == 0) {
+	control->menus.head[mindex].value = qmenu.value;
+      }
+    }
+    return;
+  default:
+    control->menus.length = 0;
+    control->menus.head = NULL;
+    return;
+  }
+}
+static camera_control_t* 
+camera_controls_query(camera_t* camera, camera_control_t* control_list)
+{
+  camera_control_t* control_list_last = control_list;
+  
+  for (uint32_t cid = V4L2_CID_USER_BASE; cid < V4L2_CID_LASTP1; cid++) {
+    struct v4l2_queryctrl qctrl;
+    memset(&qctrl, 0, sizeof qctrl);
+    qctrl.id = cid;
+    if (ioctl(camera->fd, VIDIOC_QUERYCTRL, &qctrl) == -1) continue;
+    camera_control_t* control = control_list_last++;
+    control->id = qctrl.id;
+    memcpy(control->name, qctrl.name, sizeof qctrl.name);
+    control->flags.disabled = (qctrl.flags & V4L2_CTRL_FLAG_DISABLED) != 0;
+    control->flags.grabbed = (qctrl.flags & V4L2_CTRL_FLAG_GRABBED) != 0;
+    control->flags.read_only = (qctrl.flags & V4L2_CTRL_FLAG_READ_ONLY) != 0;
+    control->flags.update = (qctrl.flags & V4L2_CTRL_FLAG_UPDATE) != 0;
+    control->flags.inactive = (qctrl.flags & V4L2_CTRL_FLAG_INACTIVE) != 0;
+    control->flags.slider = (qctrl.flags & V4L2_CTRL_FLAG_SLIDER) != 0;
+    control->flags.write_only = (qctrl.flags & V4L2_CTRL_FLAG_WRITE_ONLY) != 0;
+    control->flags.volatile_value = 
+      (qctrl.flags & V4L2_CTRL_FLAG_VOLATILE) != 0;
+    control->type = qctrl.type;
+    control->max = qctrl.maximum;
+    control->min = qctrl.minimum;
+    control->step = qctrl.step;
+    control->default_value = qctrl.default_value;
+    camera_controls_menus(camera, control);
+  }
+  return control_list_last;
+}
+camera_controls_t* camera_controls_new(camera_t* camera)
+{
+  camera_control_t control_list[V4L2_CID_LASTP1 - V4L2_CID_USER_BASE];
+  camera_control_t* control_list_last = 
+    camera_controls_query(camera, control_list);
+  camera_controls_t* controls = malloc(sizeof (camera_controls_t));
+  controls->length = control_list_last - control_list;
+  controls->head = calloc(controls->length, sizeof (camera_control_t));
+  for (size_t i = 0; i < controls->length; i++) {
+    controls->head[i] = control_list[i];
+  }
+  return controls;
+}
+
+void camera_controls_delete(camera_controls_t* controls)
+{
+  for (size_t i = 0; i < controls->length; i++) {
+    free(controls->head[i].menus.head);
+  }
+  free(controls);
+}
+
+bool camera_control_get(camera_t* camera, uint32_t id, int32_t* value)
+{
+  struct v4l2_control ctrl;
+  ctrl.id = id;
+  ctrl.value = 0;
+  if (ioctl(camera->fd, VIDIOC_G_CTRL, &ctrl) == -1) 
+    return error(camera, "VIDIOC_G_CTRL");
+  *value = ctrl.value;
+  return true;
+}
+
+bool camera_control_set(camera_t* camera, uint32_t id, int32_t value)
+{
+  struct v4l2_control ctrl;
+  ctrl.id = id;
+  ctrl.value = value;
+  if (ioctl(camera->fd, VIDIOC_S_CTRL, &ctrl) == -1) 
+    return error(camera, "VIDIOC_S_CTRL");
+  return true;
+}
