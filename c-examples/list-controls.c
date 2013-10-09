@@ -8,6 +8,8 @@
 #include "../capture.h"
 
 #include <stdio.h>
+#include <string.h>
+#include <errno.h>
 #include <inttypes.h>
 
 const char* type_strs[] = {
@@ -23,10 +25,17 @@ const char* type_strs[] = {
   "INTEGER_MENU",
 };
 
-int main()
+int main(int argc, char* argv[])
 {
-  camera_t* camera = camera_open("/dev/video0", 352, 288);
-  if (!camera) return EXIT_FAILURE;
+  char* device = argc > 1 ? argv[1] : "/dev/video0";
+  int width = argc > 2 ? atoi(argv[2]) : 352;
+  int height = argc > 3 ? atoi(argv[3]) : 288;
+  
+  camera_t* camera = camera_open(device, width, height);
+  if (!camera) {
+    fprintf(stderr, "[%s] %s\n", device, strerror(errno));
+    return EXIT_FAILURE;
+  }
   if (!camera_init(camera)) goto error_init;
   
   camera_controls_t* controls = camera_controls_new(camera);

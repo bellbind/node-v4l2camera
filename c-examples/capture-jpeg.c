@@ -10,6 +10,8 @@
 #include "../capture.h"
 
 #include <stdio.h>
+#include <string.h>
+#include <errno.h>
 
 #include <sys/time.h>
 #include <sys/types.h>
@@ -63,10 +65,18 @@ jpeg(FILE* dest, uint8_t* rgb, uint32_t width, uint32_t height, int quality)
   free(image);
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-  camera_t* camera = camera_open("/dev/video0", 352, 288);
-  if (!camera) return EXIT_FAILURE;
+  char* device = argc > 1 ? argv[1] : "/dev/video0";
+  uint32_t width = argc > 2 ? atoi(argv[2]) : 352;
+  uint32_t height = argc > 3 ? atoi(argv[3]) : 288;
+  char* output = argc > 4 ? argv[4] : "result.jpg";
+  
+  camera_t* camera = camera_open(device, width, height);
+  if (!camera) {
+    fprintf(stderr, "[%s] %s\n", device, strerror(errno));
+    return EXIT_FAILURE;
+  }
   if (!camera_init(camera)) goto error_init;
   if (!camera_start(camera)) goto error_start;
   
@@ -81,7 +91,7 @@ int main()
 
   unsigned char* rgb = 
     yuyv2rgb(camera->head.start, camera->width, camera->height);
-  FILE* out = fopen("result.jpg", "w");
+  FILE* out = fopen(output, "w");
   jpeg(out, rgb, camera->width, camera->height, 100);
   fclose(out);
   free(rgb);
