@@ -2,10 +2,10 @@
  * print controls example from UVC cam
  * build:
  *   gcc -std=c11 -Wall -Wextra -c capture.c -o capture.o
- *   gcc -std=c11 -Wall -Wextra -c controls-example.c -o controls-example.o
- *   gcc -Wall -Wextra capture.o controls-example.o -ljpeg -o controls
+ *   gcc -std=c11 -Wall -Wextra -c list-controls.c -o list-controls.o
+ *   gcc -Wall -Wextra capture.o list-controls.o -o list-controls
  */
-#include "capture.h"
+#include "../capture.h"
 
 #include <stdio.h>
 #include <inttypes.h>

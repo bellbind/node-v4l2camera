@@ -3,5 +3,7 @@ build/
 node_modules/
 
 capture
+controls
+*.o
 result.png
 result.jpg

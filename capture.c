@@ -10,6 +10,7 @@
 #include <linux/videodev2.h>
 
 static void log_stderr(camera_log_t type, const char* msg, void* pointer) {
+  (void) pointer;
   switch (type) {
   case CAMERA_ERROR:
     fprintf(stderr, "ERROR [%s] %d: %s\n", msg, errno, strerror(errno));
@@ -203,6 +204,7 @@ static inline int minmax(int min, int v, int max)
 }
 static inline uint8_t yuv2r(int y, int u, int v)
 {
+  (void) u;
   return minmax(0, (y + 359 * v) >> 8, 255);
 }
 static inline uint8_t yuv2g(int y, int u, int v)
@@ -211,6 +213,7 @@ static inline uint8_t yuv2g(int y, int u, int v)
 }
 static inline uint8_t yuv2b(int y, int u, int v)
 {
+  (void) v;
   return minmax(0, (y + 454 * u) >> 8, 255);
 }
 uint8_t* yuyv2rgb(uint8_t* yuyv, uint32_t width, uint32_t height)

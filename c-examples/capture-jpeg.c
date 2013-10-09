@@ -1,13 +1,13 @@
 /*
- * capturing example from UVC cam
+ * jpeg capturing example from UVC cam
  * requires: libjpeg-dev
  * build:
  *   gcc -std=c11 -Wall -Wextra -c capture.c -o capture.o
- *   gcc -std=c11 -Wall -Wextra -c capture-example.c -o capture-example.o
- *   gcc -Wall -Wextra capture.o capture-example.o -ljpeg -o capture
+ *   gcc -std=c11 -Wall -Wextra -c capture-jpeg.c -o capture-jpeg.o
+ *   gcc -Wall -Wextra capture.o capture-jpeg.o -ljpeg -o capture-jpeg
  */
 
-#include "capture.h"
+#include "../capture.h"
 
 #include <stdio.h>
 
