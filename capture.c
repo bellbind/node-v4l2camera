@@ -265,8 +265,8 @@ camera_controls_menus(camera_t* camera, camera_control_t* control)
       qmenu.id = control->id;
       qmenu.index = mindex;
       if (ioctl(camera->fd, VIDIOC_QUERYMENU, &qmenu) == 0) {
-	memcpy(control->menus.head[mindex].name, qmenu.name, 
-	       sizeof qmenu.name);
+        memcpy(control->menus.head[mindex].name, qmenu.name, 
+               sizeof qmenu.name);
       }
     }
     return;
@@ -280,7 +280,7 @@ camera_controls_menus(camera_t* camera, camera_control_t* control)
       qmenu.id = control->id;
       qmenu.index = mindex;
       if (ioctl(camera->fd, VIDIOC_QUERYMENU, &qmenu) == 0) {
-	control->menus.head[mindex].value = qmenu.value;
+        control->menus.head[mindex].value = qmenu.value;
       }
     }
     return;

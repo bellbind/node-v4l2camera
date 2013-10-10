@@ -47,19 +47,19 @@ int main(int argc, char* argv[])
     printf("- type: %s\n", type_strs[controls->head[i].type]);
     printf("- value: %d\n", value);
     printf("- range: %d <- %d -> %d (step: %d)\n",
-	   controls->head[i].min, controls->head[i].default_value,  
-	   controls->head[i].max, controls->head[i].step);
+           controls->head[i].min, controls->head[i].default_value,  
+           controls->head[i].max, controls->head[i].step);
     switch (controls->head[i].type) {
     case CAMERA_CTRL_MENU:
       puts("- menus");
       for (size_t j = 0; j < controls->head[i].menus.length; j++) {
-	printf("    - %s\n", controls->head[i].menus.head[j].name);
+        printf("    - %s\n", controls->head[i].menus.head[j].name);
       }
       break;
     case CAMERA_CTRL_INTEGER_MENU:
       puts("- menus");
       for (size_t j = 0; j < controls->head[i].menus.length; j++) {
-	printf("    - %"PRId64"\n", controls->head[i].menus.head[j].value);
+        printf("    - %"PRId64"\n", controls->head[i].menus.head[j].value);
       }
       break;
     default:
