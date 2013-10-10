@@ -35,6 +35,8 @@ For more detail see: examples/*.js (required "pngjs" or native "png" modules)
 
 ## API
 
+Capturing API
+
 - `var cam = new v4l2camera.Camera(device, width, height)`
 - `cam.start()`
 - `cam.stop()`
@@ -46,6 +48,21 @@ For more detail see: examples/*.js (required "pngjs" or native "png" modules)
 - `cam.width`
 - `cam.height`
 
+Control API
+
+- `cam.controls`: Array of the control information
+- `cam.controlGet(id)`: Get int value of the control of `id`
+  (id is one of cam.controls[n].id)
+- `cam.controlSet(id, value)`: Set int value of the control of `id`
+- `cam.controls[n]`: Control spec
+    - id: Control `id` for controlGet and controlSet
+    - name: Control name string
+    - type: `"int"` or `"bool"` or `"button"` or `"menu"` or other types
+    - max, min, step, default: Spec of value as `min <= v` and `v <= max` and 
+      `(v - min) % step === 0`
+    - flags: Several bool flags of the controls
+    - menu: Array of items. 
+      A control value is the index of the menu when type is `"menu"`.
 
 ## Build for Development
 

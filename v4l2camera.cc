@@ -43,6 +43,80 @@ static v8::Handle<v8::Value> throwError(camera_t* camera)
   return throwError(ctx->msg.c_str());
 }
 
+static const char* control_type_names[] = {
+  "invalid",
+  "int",
+  "bool",
+  "menu",
+  "int64",
+  "class"
+  "string",
+  "bitmask",
+  "int_menu",
+};
+static v8::Local<v8::Object> cameraControls(camera_t* camera)
+{
+  auto ccontrols = camera_controls_new(camera);
+  auto controls = v8::Array::New(ccontrols->length);
+  for (size_t i = 0; i < ccontrols->length; i++) {
+    auto ccontrol = &ccontrols->head[i];
+    auto control = v8::Object::New();
+    auto name = v8::String::New(reinterpret_cast<char*>(ccontrol->name));
+    controls->Set(i, control);
+    controls->Set(name, control);
+    control->Set(v8::String::NewSymbol("id"), 
+                 v8::Integer::NewFromUnsigned(ccontrol->id));
+    control->Set(v8::String::NewSymbol("name"), name);
+    control->Set(v8::String::NewSymbol("type"), 
+                 v8::String::New(control_type_names[ccontrol->type]));
+    control->Set(v8::String::NewSymbol("min"), 
+                 v8::Integer::NewFromUnsigned(ccontrol->min));
+    control->Set(v8::String::NewSymbol("max"), 
+                 v8::Integer::NewFromUnsigned(ccontrol->max));
+    control->Set(v8::String::NewSymbol("step"), 
+                 v8::Integer::NewFromUnsigned(ccontrol->step));
+    control->Set(v8::String::NewSymbol("default"), 
+                 v8::Integer::NewFromUnsigned(ccontrol->default_value));
+    auto flags = v8::Object::New();
+    control->Set(v8::String::NewSymbol("flags"), flags);
+    flags->Set(v8::String::NewSymbol("disabled"), 
+               v8::Boolean::New(ccontrol->flags.disabled));
+    flags->Set(v8::String::NewSymbol("grabbed"), 
+               v8::Boolean::New(ccontrol->flags.grabbed));
+    flags->Set(v8::String::NewSymbol("readOnly"), 
+               v8::Boolean::New(ccontrol->flags.read_only));
+    flags->Set(v8::String::NewSymbol("update"), 
+               v8::Boolean::New(ccontrol->flags.update));
+    flags->Set(v8::String::NewSymbol("inactive"), 
+               v8::Boolean::New(ccontrol->flags.inactive));
+    flags->Set(v8::String::NewSymbol("slider"), 
+               v8::Boolean::New(ccontrol->flags.slider));
+    flags->Set(v8::String::NewSymbol("writeOnly"), 
+               v8::Boolean::New(ccontrol->flags.write_only));
+    flags->Set(v8::String::NewSymbol("volatile"), 
+               v8::Boolean::New(ccontrol->flags.volatile_value));
+    auto menu = v8::Array::New(ccontrol->menus.length);
+    control->Set(v8::String::NewSymbol("menu"), menu);
+    switch (ccontrol->type) {
+    case CAMERA_CTRL_MENU:
+      for (size_t j = 0; j < ccontrol->menus.length; j++) {
+        auto value = reinterpret_cast<char*>(ccontrol->menus.head[j].name);
+        menu->Set(j, v8::String::New(value));
+      }
+      break;
+    case CAMERA_CTRL_INTEGER_MENU:
+      for (size_t j = 0; j < ccontrol->menus.length; j++) {
+        auto value = static_cast<int32_t>(ccontrol->menus.head[j].value);
+        menu->Set(j, v8::Integer::New(value));
+      }
+      break;
+    default: break;
+    }
+  }
+  camera_controls_delete(ccontrols);
+  return controls;
+}
+
 static void cameraDelete(v8::Persistent<v8::Value> handle, void* param)
 {
   auto camera = static_cast<camera_t*>(param);
@@ -51,7 +125,6 @@ static void cameraDelete(v8::Persistent<v8::Value> handle, void* param)
   camera_close(camera);
   handle.Dispose();
 }
-
 static v8::Handle<v8::Value> cameraNew(const v8::Arguments& args)
 {
   v8::HandleScope scope;
@@ -77,6 +150,7 @@ static v8::Handle<v8::Value> cameraNew(const v8::Arguments& args)
   thisObj->SetInternalField(0, v8::External::New(camera));
   auto holder = v8::Persistent<v8::Object>::New(thisObj);
   holder.MakeWeak(camera, cameraDelete);
+  thisObj->Set(v8::String::NewSymbol("controls"), cameraControls(camera));
   thisObj->Set(v8::String::NewSymbol("device"), args[0]);
   thisObj->Set(v8::String::NewSymbol("width"), args[1]);
   thisObj->Set(v8::String::NewSymbol("height"), args[2]);
@@ -177,6 +251,40 @@ static v8::Handle<v8::Value> cameraToRGB(const v8::Arguments& args)
   return scope.Close(ret);
 }
 
+static v8::Handle<v8::Value> cameraControlGet(const v8::Arguments& args)
+{
+  v8::HandleScope scope;
+  if (args.Length() < 1) {
+    auto msg = v8::String::New("an argument required: id");
+    return v8::ThrowException(v8::Exception::TypeError(msg));
+  }
+  uint32_t id = args[0]->Uint32Value();
+  auto thisObj = args.This();
+  auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
+  auto camera = static_cast<camera_t*>(xcamera->Value());
+  int32_t value = 0;
+  bool success = camera_control_get(camera, id, &value);
+  if (!success) return throwError(camera);
+  return scope.Close(v8::Integer::New(value));
+}
+
+static v8::Handle<v8::Value> cameraControlSet(const v8::Arguments& args)
+{
+  v8::HandleScope scope;
+  if (args.Length() < 2) {
+    auto msg = v8::String::New("an argument required: id, value");
+    return v8::ThrowException(v8::Exception::TypeError(msg));
+  }
+  uint32_t id = args[0]->Uint32Value();
+  int32_t value = args[1]->Int32Value();
+  auto thisObj = args.This();
+  auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
+  auto camera = static_cast<camera_t*>(xcamera->Value());
+  bool success = camera_control_set(camera, id, value);
+  if (!success) return throwError(camera);
+  return scope.Close(thisObj);
+}
+
 static void moduleInit(v8::Handle<v8::Object> exports)
 {
   v8::HandleScope scope;  
@@ -194,6 +302,10 @@ static void moduleInit(v8::Handle<v8::Object> exports)
              v8::FunctionTemplate::New(cameraToYUYV)->GetFunction());
   proto->Set(v8::String::NewSymbol("toRGB"),
              v8::FunctionTemplate::New(cameraToRGB)->GetFunction());
+  proto->Set(v8::String::NewSymbol("controlGet"),
+             v8::FunctionTemplate::New(cameraControlGet)->GetFunction());
+  proto->Set(v8::String::NewSymbol("controlSet"),
+             v8::FunctionTemplate::New(cameraControlSet)->GetFunction());
   auto ctor = v8::Local<v8::Function>::New(clazz->GetFunction());
   exports->Set(v8::String::NewSymbol("Camera"), ctor);
 }

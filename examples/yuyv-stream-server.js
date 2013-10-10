@@ -1,5 +1,5 @@
 var http = require("http");
-var v4l2camera = require("../build/Release/v4l2camera");
+var v4l2camera = require("../");
 
 var server = http.createServer(function (req, res) {
     //console.log(req.url);
