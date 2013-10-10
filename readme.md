@@ -55,14 +55,15 @@ Control API
   (id is one of cam.controls[n].id)
 - `cam.controlSet(id, value)`: Set int value of the control of `id`
 - `cam.controls[n]`: Control spec
-    - id: Control `id` for controlGet and controlSet
-    - name: Control name string
-    - type: `"int"` or `"bool"` or `"button"` or `"menu"` or other types
-    - max, min, step, default: Spec of value as `min <= v` and `v <= max` and 
-      `(v - min) % step === 0`
-    - flags: Several bool flags of the controls
-    - menu: Array of items. 
-      A control value is the index of the menu when type is `"menu"`.
+    - `control.id`: Control `id` for controlGet and controlSet
+    - `control.name`: Control name string
+    - `control.type`: `"int"`, `"bool"`, `"button"`, `"menu"` or other types
+    - `control.max`, `control.min`, `control.step`: value should be
+      `min <= v` and `v <= max` and `(v - min) % step === 0`
+    - `control.default`: default value of the control
+    - `control.flags`: Several bool flags of the controls
+    - `control.menu`: Array of items. 
+      A control value is the index of the menu item when type is `"menu"`.
 
 ## Build for Development
 
