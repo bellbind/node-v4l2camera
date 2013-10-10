@@ -251,43 +251,42 @@ uint8_t* yuyv2rgb(uint8_t* yuyv, uint32_t width, uint32_t height)
   return rgb;
 }
 
+
+static void 
+camera_menu_copy(camera_menu_t* menu, struct v4l2_querymenu* qmenu)
+{
+  memcpy(menu->name, qmenu->name, sizeof qmenu->name);
+}
+static void 
+camera_integer_menu_copy(camera_menu_t* menu, struct v4l2_querymenu* qmenu)
+{
+  menu->value = qmenu->value;
+}
 static void 
 camera_controls_menus(camera_t* camera, camera_control_t* control)
 {
+  void (*copy)(camera_menu_t*, struct v4l2_querymenu*) = &camera_menu_copy;
   switch (control->type) {
   case CAMERA_CTRL_MENU:
-    control->menus.length = control->max + 1;
-    control->menus.head = 
-      calloc(control->menus.length, sizeof (camera_menu_t));
-    for (uint32_t mindex = 0; mindex < control->menus.length; mindex++) {
-      struct v4l2_querymenu qmenu;
-      memset(&qmenu, 0, sizeof qmenu);
-      qmenu.id = control->id;
-      qmenu.index = mindex;
-      if (ioctl(camera->fd, VIDIOC_QUERYMENU, &qmenu) == 0) {
-        memcpy(control->menus.head[mindex].name, qmenu.name, 
-               sizeof qmenu.name);
-      }
-    }
-    return;
+    break;
   case CAMERA_CTRL_INTEGER_MENU:
-    control->menus.length = control->max + 1;
-    control->menus.head = 
-      calloc(control->menus.length, sizeof (camera_menu_t));
-    for (uint32_t mindex = 0; mindex < control->menus.length; mindex++) {
-      struct v4l2_querymenu qmenu;
-      memset(&qmenu, 0, sizeof qmenu);
-      qmenu.id = control->id;
-      qmenu.index = mindex;
-      if (ioctl(camera->fd, VIDIOC_QUERYMENU, &qmenu) == 0) {
-        control->menus.head[mindex].value = qmenu.value;
-      }
-    }
-    return;
+    copy = &camera_integer_menu_copy;
+    break;
   default:
     control->menus.length = 0;
     control->menus.head = NULL;
     return;
+  }
+  control->menus.length = control->max + 1;
+  control->menus.head = calloc(control->menus.length, sizeof (camera_menu_t));
+  for (uint32_t mindex = 0; mindex < control->menus.length; mindex++) {
+    struct v4l2_querymenu qmenu;
+    memset(&qmenu, 0, sizeof qmenu);
+    qmenu.id = control->id;
+    qmenu.index = mindex;
+    if (ioctl(camera->fd, VIDIOC_QUERYMENU, &qmenu) == 0) {
+      copy(&control->menus.head[mindex], &qmenu);
+    }
   }
 }
 static camera_control_t* 

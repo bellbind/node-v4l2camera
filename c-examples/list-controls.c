@@ -12,7 +12,7 @@
 #include <errno.h>
 #include <inttypes.h>
 
-const char* type_strs[] = {
+const char* type_names[] = {
   "INVALID",
   "INTEGER",
   "BOOLEAN",
@@ -23,6 +23,10 @@ const char* type_strs[] = {
   "STRING",
   "BITMASK",
   "INTEGER_MENU",
+};
+const char* bool_names[] = {
+  "false",
+  "true",
 };
 
 int main(int argc, char* argv[])
@@ -40,31 +44,39 @@ int main(int argc, char* argv[])
   
   camera_controls_t* controls = camera_controls_new(camera);
   for (size_t i = 0; i < controls->length; i++) {
+    camera_control_t* control = &controls->head[i];
     int32_t value = 0;
-    camera_control_get(camera, controls->head[i].id, &value);
-    printf("[%s]\n", controls->head[i].name);
-    printf("- id: %d\n", controls->head[i].id);
-    printf("- type: %s\n", type_strs[controls->head[i].type]);
+    camera_control_get(camera, control->id, &value);
+    printf("[%s]\n", control->name);
+    printf("- id: %d\n", control->id);
+    printf("- type: %s\n", type_names[control->type]);
     printf("- value: %d\n", value);
     printf("- range: %d <- %d -> %d (step: %d)\n",
-           controls->head[i].min, controls->head[i].default_value,  
-           controls->head[i].max, controls->head[i].step);
-    switch (controls->head[i].type) {
+           control->min, control->default_value, control->max, control->step);
+    switch (control->type) {
     case CAMERA_CTRL_MENU:
       puts("- menus");
-      for (size_t j = 0; j < controls->head[i].menus.length; j++) {
-        printf("    - %s\n", controls->head[i].menus.head[j].name);
+      for (size_t j = 0; j < control->menus.length; j++) {
+        printf("    - %zu: [%s]\n", j, control->menus.head[j].name);
       }
       break;
     case CAMERA_CTRL_INTEGER_MENU:
       puts("- menus");
-      for (size_t j = 0; j < controls->head[i].menus.length; j++) {
-        printf("    - %"PRId64"\n", controls->head[i].menus.head[j].value);
+      for (size_t j = 0; j < control->menus.length; j++) {
+        printf("    - %zu: %"PRId64"\n", j, control->menus.head[j].value);
       }
       break;
-    default:
-      break;
+    default: break;
     }
+    puts("- flags");
+    printf("    - disabled: %s\n", bool_names[control->flags.disabled]);
+    printf("    - grabbed: %s\n", bool_names[control->flags.grabbed]);
+    printf("    - read only: %s\n", bool_names[control->flags.read_only]);
+    printf("    - update: %s\n", bool_names[control->flags.update]);
+    printf("    - inactive: %s\n", bool_names[control->flags.inactive]);
+    printf("    - slider: %s\n", bool_names[control->flags.slider]);
+    printf("    - write_only: %s\n", bool_names[control->flags.write_only]);
+    printf("    - volatile: %s\n", bool_names[control->flags.volatile_value]);
     puts("");
   }
   
