@@ -2,8 +2,8 @@ npm-debug.log
 build/
 node_modules/
 
-capture
-controls
+capture-jpeg
+list-controls
 *.o
 result.png
 result.jpg
