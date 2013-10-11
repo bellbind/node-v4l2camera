@@ -445,3 +445,72 @@ bool camera_control_set(camera_t* camera, uint32_t id, int32_t value)
     return error(camera, "VIDIOC_S_CTRL");
   return true;
 }
+
+camera_formats_t*  camera_formats_new(camera_t* camera)
+{
+  camera_formats_t* ret = malloc(sizeof (camera_formats_t));
+  ret->length = 0;
+  ret->head = NULL;
+  for (uint32_t i = 0; ; i++) {
+    struct v4l2_fmtdesc fmt;
+    memset(&fmt, 0, sizeof fmt);
+    fmt.index = i;
+    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    if (ioctl(camera->fd, VIDIOC_ENUM_FMT, &fmt) == -1) break;
+    //printf("[%s]\n", fmt.description);
+    for (uint32_t j = 0; ; j++) {
+      struct v4l2_frmsizeenum frmsize;
+      memset(&frmsize, 0, sizeof frmsize);
+      frmsize.index = j;
+      frmsize.pixel_format = fmt.pixelformat;
+      if (ioctl(camera->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize) == -1) break;
+      if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
+        //printf("- w: %d, h: %d\n", 
+        //       frmsize.discrete.width, frmsize.discrete.height);
+        for (uint32_t k = 0; ; k++) {
+          struct v4l2_frmivalenum frmival;
+          memset(&frmival, 0, sizeof frmival);
+          frmival.index = k;
+          frmival.pixel_format = fmt.pixelformat;
+          frmival.width = frmsize.discrete.width;
+          frmival.height = frmsize.discrete.height;
+          if (ioctl(camera->fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmival) == -1) 
+            break;
+          if (frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
+            //printf("  - fps: %d/%d\n", 
+            //       frmival.discrete.denominator,frmival.discrete.numerator);
+            ret->head = 
+              realloc(ret->head, (ret->length + 1) * sizeof (camera_format_t));
+            ret->head[ret->length].format = fmt.pixelformat;
+            ret->head[ret->length].width = frmsize.discrete.width;
+            ret->head[ret->length].height = frmsize.discrete.height;
+            ret->head[ret->length].interval.numerator =
+              frmival.discrete.numerator;
+            ret->head[ret->length].interval.denominator =
+              frmival.discrete.denominator;
+            ret->length++;
+          } else {
+            //printf("  - fps: %d/%d-%d/%d\n", 
+            //       frmival.stepwise.min.denominator,
+            //       frmival.stepwise.min.numerator,
+            //       frmival.stepwise.max.denominator,
+            //       frmival.stepwise.max.numerator);
+            // TBD: when stepwize
+          }
+        }
+      } else {
+        //printf("- w: %d-%d, h: %d-%d\n", 
+        //       frmsize.stepwise.min_width, frmsize.stepwise.max_width,
+        //      frmsize.stepwise.min_height, frmsize.stepwise.max_height);
+        // TBD: when stepwize
+      }
+    }
+    
+  }
+  return ret;
+}
+void camera_formats_delete(camera_formats_t* formats)
+{
+  free(formats->head);
+  free(formats);
+}

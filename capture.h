@@ -113,6 +113,16 @@ void camera_controls_delete(camera_controls_t* controls);
 bool camera_control_get(camera_t* camera, uint32_t id, int32_t* value);
 bool camera_control_set(camera_t* camera, uint32_t id, int32_t value);
 
+
+typedef camera_config_t camera_format_t;
+typedef struct {
+  size_t length;
+  camera_format_t* head;
+} camera_formats_t;
+camera_formats_t* camera_formats_new(camera_t* camera);
+void camera_formats_delete(camera_formats_t* formats);
+
+
 #ifdef __cplusplus
 }
 #endif
