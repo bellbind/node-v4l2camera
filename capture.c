@@ -9,6 +9,21 @@
 #include <sys/mman.h>
 #include <linux/videodev2.h>
 
+uint32_t camera_format_id(const char* name)
+{
+  //assert(strlen(name) == 4);
+  return (uint32_t) name[0] | ((uint32_t) name[1] << 8) |
+    ((uint32_t) name[2] << 16) | ((uint32_t) name[3] << 24);
+}
+void camera_format_name(uint32_t format_id, char* name)
+{
+  name[0] = format_id & 0xff;
+  name[1] = (format_id >> 8) & 0xff;
+  name[2] = (format_id >> 16) & 0xff;
+  name[3] = (format_id >> 24) & 0xff;
+  name[4] = '\0';
+}
+
 static void log_stderr(camera_log_t type, const char* msg, void* pointer) {
   (void) pointer;
   switch (type) {
@@ -44,15 +59,18 @@ static int xioctl(int fd, int request, void* arg)
   return -1;
 }
 
-camera_t* camera_open(const char * device, uint32_t width, uint32_t height)
+
+
+camera_t* camera_open(const char * device)
 {
   int fd = open(device, O_RDWR | O_NONBLOCK, 0);
   if (fd == -1) return NULL;
   
   camera_t* camera = malloc(sizeof (camera_t));
   camera->fd = fd;
-  camera->width = width;
-  camera->height = height;
+  camera->initialized = false;
+  camera->width = 0;
+  camera->height = 0;
   camera->buffer_count = 0;
   camera->buffers = NULL;
   camera->head.length = 0;
@@ -72,7 +90,7 @@ static void free_buffers(camera_t* camera, size_t count)
   camera->buffer_count = 0;
 }
 
-bool camera_init(camera_t* camera) {
+static bool camera_init(camera_t* camera) {
   struct v4l2_capability cap;
   if (xioctl(camera->fd, VIDIOC_QUERYCAP, &cap) == -1)
     return error(camera, "VIDIOC_QUERYCAP");
@@ -92,17 +110,12 @@ bool camera_init(camera_t* camera) {
       // cropping not supported
     }
   }
-  
-  struct v4l2_format format;
-  memset(&format, 0, sizeof format);
-  format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  format.fmt.pix.width = camera->width;
-  format.fmt.pix.height = camera->height;
-  format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
-  format.fmt.pix.field = V4L2_FIELD_NONE;
-  if (xioctl(camera->fd, VIDIOC_S_FMT, &format) == -1)
-    return error(camera, "VIDIOC_S_FMT");
+  camera->initialized = true;
+  return true;
+};
 
+static bool camera_buffer_prepare(camera_t* camera)
+{
   struct v4l2_requestbuffers req;
   memset(&req, 0, sizeof req);
   req.count = 4;
@@ -138,9 +151,84 @@ bool camera_init(camera_t* camera) {
   return true;
 }
 
+static void camera_buffer_finish(camera_t* camera)
+{
+  free_buffers(camera, camera->buffer_count);
+  free(camera->head.start);
+  camera->head.length = 0;
+  camera->head.start = NULL;
+}
+
+static bool camera_load_settings(camera_t* camera)
+{
+  struct v4l2_format format;
+  memset(&format, 0, sizeof format);
+  format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  if (xioctl(camera->fd, VIDIOC_G_FMT, &format) == -1)
+    return error(camera, "VIDIOC_G_FMT");
+  camera->width = format.fmt.pix.width;
+  camera->height = format.fmt.pix.height;
+  return true;
+}
+
+static bool camera_set_config(camera_t* camera, camera_config_t* config)
+{
+  if (config->width > 0 && config->height > 0) {
+    uint32_t pixformat = config->format || V4L2_PIX_FMT_YUYV;
+    struct v4l2_format format;
+    memset(&format, 0, sizeof format);
+    format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    format.fmt.pix.width = config->width;
+    format.fmt.pix.height = config->height;
+    format.fmt.pix.pixelformat = pixformat;
+    format.fmt.pix.field = V4L2_FIELD_NONE;
+    if (xioctl(camera->fd, VIDIOC_S_FMT, &format) == -1)
+      return error(camera, "VIDIOC_S_FMT");
+  }
+  if (config->interval.numerator != 0 && config->interval.denominator != 0) {
+    struct v4l2_streamparm parm;
+    memset(&parm, 0, sizeof parm);
+    parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    parm.parm.capture.timeperframe.numerator = config->interval.numerator;
+    parm.parm.capture.timeperframe.denominator = config->interval.denominator;
+    if (xioctl(camera->fd, VIDIOC_S_PARM, &parm) == -1)
+      return error(camera, "VIDIOC_S_PARM");    
+  }
+  return true;
+}
+
+bool camera_stop(camera_t* camera)
+{
+  enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  if (xioctl(camera->fd, VIDIOC_STREAMOFF, &type) == -1) 
+    return error(camera, "VIDIOC_STREAMOFF");
+  return true;
+}
+
+bool camera_config(camera_t* camera, camera_config_t* config)
+{
+  if (camera->buffer_count > 0) {
+    if (!camera_stop(camera)) return false;
+    camera_buffer_finish(camera);
+  }
+  if (!camera->initialized) {
+    if (!camera_init(camera)) return false;
+  }
+  if (!camera_set_config(camera, config)) return false;
+  if (!camera_load_settings(camera)) return false;
+  return camera_buffer_prepare(camera);
+}
 
 bool camera_start(camera_t* camera)
 {
+  if (!camera->initialized) {
+    if (!camera_init(camera)) return false;
+  }
+  if (camera->buffer_count == 0) {
+    if (!camera_load_settings(camera)) return false;
+    if (!camera_buffer_prepare(camera)) return false;
+  }
+
   for (size_t i = 0; i < camera->buffer_count; i++) {
     struct v4l2_buffer buf;
     memset(&buf, 0, sizeof buf);
@@ -157,25 +245,13 @@ bool camera_start(camera_t* camera)
   return true;
 }
 
-bool camera_stop(camera_t* camera)
-{
-  enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-  if (xioctl(camera->fd, VIDIOC_STREAMOFF, &type) == -1) 
-    return error(camera, "VIDIOC_STREAMOFF");
-  return true;
-}
-
-bool camera_finish(camera_t* camera)
-{
-  free_buffers(camera, camera->buffer_count);
-  free(camera->head.start);
-  camera->head.length = 0;
-  camera->head.start = NULL;
-  return true;
-}
 
 bool camera_close(camera_t* camera)
 {
+  if (camera->buffer_count > 0) {
+    camera_stop(camera);
+    camera_buffer_finish(camera);
+  }
   for (int i = 0; i < 10; i++) {
     if (close(camera->fd) != -1) break;
   }

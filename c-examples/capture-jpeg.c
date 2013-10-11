@@ -72,13 +72,14 @@ int main(int argc, char* argv[])
   uint32_t height = argc > 3 ? atoi(argv[3]) : 288;
   char* output = argc > 4 ? argv[4] : "result.jpg";
   
-  camera_t* camera = camera_open(device, width, height);
+  camera_t* camera = camera_open(device);
   if (!camera) {
     fprintf(stderr, "[%s] %s\n", device, strerror(errno));
     return EXIT_FAILURE;
   }
-  if (!camera_init(camera)) goto error_init;
-  if (!camera_start(camera)) goto error_start;
+  camera_config_t config = {0, width, height, {0, 0}};
+  if (!camera_config(camera, &config)) goto error;
+  if (!camera_start(camera)) goto error;
   
   struct timeval timeout;
   timeout.tv_sec = 1;
@@ -97,12 +98,9 @@ int main(int argc, char* argv[])
   free(rgb);
   
   camera_stop(camera);
-  camera_finish(camera);
   camera_close(camera);
   return 0;
- error_start:
-  camera_finish(camera);
- error_init:
+ error:
   camera_close(camera);
   return EXIT_FAILURE;  
 }

@@ -27,6 +27,7 @@ typedef struct {
 
 typedef struct {
   int fd;
+  bool initialized;
   uint32_t width;
   uint32_t height;
   size_t buffer_count;
@@ -35,13 +36,25 @@ typedef struct {
   camera_context_t context;
 } camera_t;
 
+typedef struct {
+  uint32_t format;
+  uint32_t width;
+  uint32_t height;
+  struct {
+    uint32_t numerator;
+    uint32_t denominator;
+  } interval;
+} camera_config_t;
+/* convert 4 char name and id. e.g. "YUYV" */
+uint32_t camera_format_id(const char* name);
+void camera_format_name(uint32_t format_id, char* name);
 
-camera_t* camera_open(const char * device, uint32_t width, uint32_t height);
-bool camera_init(camera_t* camera);
+camera_t* camera_open(const char * device);
+bool camera_config(camera_t* camera, camera_config_t* conf);
 bool camera_start(camera_t* camera);
 bool camera_stop(camera_t* camera);
-bool camera_finish(camera_t* camera);
 bool camera_close(camera_t* camera);
+
 bool camera_capture(camera_t* camera);
 uint8_t* yuyv2rgb(uint8_t* yuyv, uint32_t width, uint32_t height);
 

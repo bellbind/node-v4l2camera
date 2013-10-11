@@ -120,9 +120,9 @@ static v8::Local<v8::Object> cameraControls(camera_t* camera)
 static void cameraDelete(v8::Persistent<v8::Value> handle, void* param)
 {
   auto camera = static_cast<camera_t*>(param);
-  camera_finish(camera);
-  delete static_cast<LogContext*>(camera->context.pointer);
+  auto ctx = static_cast<LogContext*>(camera->context.pointer);
   camera_close(camera);
+  delete ctx;
   handle.Dispose();
 }
 static v8::Handle<v8::Value> cameraNew(const v8::Arguments& args)
@@ -136,12 +136,13 @@ static v8::Handle<v8::Value> cameraNew(const v8::Arguments& args)
   const char* device = *u8device;
   uint32_t width = args[1]->Uint32Value();
   uint32_t height = args[2]->Uint32Value();
+  camera_config_t config = {0, width, height, {0, 0}};
   
-  auto camera = camera_open(device, width, height);
+  auto camera = camera_open(device);
   if (!camera) return throwError(strerror(errno));
   camera->context.pointer = new LogContext;
   camera->context.log = &logRecord;
-  if (!camera_init(camera)) {
+  if (!camera_config(camera, &config)) {
     auto err = throwError(camera);
     delete static_cast<LogContext*>(camera->context.pointer);
     return err;
@@ -152,8 +153,10 @@ static v8::Handle<v8::Value> cameraNew(const v8::Arguments& args)
   holder.MakeWeak(camera, cameraDelete);
   thisObj->Set(v8::String::NewSymbol("controls"), cameraControls(camera));
   thisObj->Set(v8::String::NewSymbol("device"), args[0]);
-  thisObj->Set(v8::String::NewSymbol("width"), args[1]);
-  thisObj->Set(v8::String::NewSymbol("height"), args[2]);
+  thisObj->Set(v8::String::NewSymbol("width"), 
+               v8::Integer::NewFromUnsigned(camera->width));
+  thisObj->Set(v8::String::NewSymbol("height"), 
+               v8::Integer::NewFromUnsigned(camera->height));
   return scope.Close(thisObj);
 }
 
