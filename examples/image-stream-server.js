@@ -61,7 +61,8 @@ var toPng = function () {
     return png;
 };
 
-var cam = new v4l2camera.Camera("/dev/video0", 352, 288);
+var cam = new v4l2camera.Camera("/dev/video0")
+cam.config({width: 352, height: 288});
 cam.start();
 cam.capture(function loop() {
     cam.capture(loop);

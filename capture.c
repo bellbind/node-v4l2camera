@@ -202,6 +202,7 @@ bool camera_stop(camera_t* camera)
   enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl(camera->fd, VIDIOC_STREAMOFF, &type) == -1) 
     return error(camera, "VIDIOC_STREAMOFF");
+
   return true;
 }
 
@@ -219,7 +220,7 @@ bool camera_config(camera_t* camera, camera_config_t* config)
   return camera_buffer_prepare(camera);
 }
 
-bool camera_start(camera_t* camera)
+static bool camera_load(camera_t* camera)
 {
   if (!camera->initialized) {
     if (!camera_init(camera)) return false;
@@ -228,6 +229,12 @@ bool camera_start(camera_t* camera)
     if (!camera_load_settings(camera)) return false;
     if (!camera_buffer_prepare(camera)) return false;
   }
+  return true;
+}
+
+bool camera_start(camera_t* camera)
+{
+  if (!camera_load(camera)) return false;
 
   for (size_t i = 0; i < camera->buffer_count; i++) {
     struct v4l2_buffer buf;

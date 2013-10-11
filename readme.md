@@ -22,7 +22,7 @@ npm install v4l2camera
 ```js
 var v4l2camera = require("v4l2camera");
 
-var cam = new v4l2camera.Camera("/dev/video0", 352, 288);
+var cam = new v4l2camera.Camera("/dev/video0");
 cam.start();
 cam.capture(function (success) {
   var rgb = cam.toRGB();
@@ -37,7 +37,9 @@ For more detail see: examples/*.js (required "pngjs" or native "png" modules)
 
 Capturing API
 
-- `var cam = new v4l2camera.Camera(device, width, height)`
+- `var cam = new v4l2camera.Camera(device)`
+- `cam.config{width: w, height: h, interval: {numerator: n, denominator: d}})`
+  : set capture width, height and interval per `n/d` sec (e.g. 30fps is 1/30)
 - `cam.start()`
 - `cam.stop()`
 - `cam.capture(afterCaptured)`: cache a current captured frame
@@ -54,7 +56,7 @@ Control API
 - `cam.controlGet(id)`: Get int value of the control of `id`
   (id is one of cam.controls[n].id)
 - `cam.controlSet(id, value)`: Set int value of the control of `id`
-- `cam.controls[n]`: Control spec
+- `var control = cam.controls[n]`: Control spec
     - `control.id`: Control `id` for controlGet and controlSet
     - `control.name`: Control name string
     - `control.type`: `"int"`, `"bool"`, `"button"`, `"menu"` or other types

@@ -9,6 +9,8 @@
 #include <string>
 #include <sstream>
 
+#include <iostream>
+
 namespace {
 
 struct LogContext {
@@ -128,31 +130,49 @@ static void cameraDelete(v8::Persistent<v8::Value> handle, void* param)
 static v8::Handle<v8::Value> cameraNew(const v8::Arguments& args)
 {
   v8::HandleScope scope;
-  if (args.Length() < 3) {
-    auto msg = v8::String::New("3 arguments required: device, width, height");
+  if (args.Length() < 1) {
+    auto msg = v8::String::New("argument required: device");
     return v8::ThrowException(v8::Exception::TypeError(msg));
   }
   v8::String::Utf8Value u8device(args[0]->ToString());
   const char* device = *u8device;
-  uint32_t width = args[1]->Uint32Value();
-  uint32_t height = args[2]->Uint32Value();
-  camera_config_t config = {0, width, height, {0, 0}};
   
   auto camera = camera_open(device);
   if (!camera) return throwError(strerror(errno));
   camera->context.pointer = new LogContext;
   camera->context.log = &logRecord;
-  if (!camera_config(camera, &config)) {
-    auto err = throwError(camera);
-    delete static_cast<LogContext*>(camera->context.pointer);
-    return err;
-  }
   auto thisObj = args.This();
   thisObj->SetInternalField(0, v8::External::New(camera));
   auto holder = v8::Persistent<v8::Object>::New(thisObj);
   holder.MakeWeak(camera, cameraDelete);
   thisObj->Set(v8::String::NewSymbol("controls"), cameraControls(camera));
   thisObj->Set(v8::String::NewSymbol("device"), args[0]);
+  return scope.Close(thisObj);
+}
+
+static v8::Handle<v8::Value> cameraConfig(const v8::Arguments& args)
+{
+  v8::HandleScope scope;
+  if (args.Length() < 1) {
+    auto msg = v8::String::New("argument required: config");
+    return v8::ThrowException(v8::Exception::TypeError(msg));
+  }
+  auto config = args[0]->ToObject();
+  uint32_t width = config->Get(v8::String::New("width"))->Uint32Value();
+  uint32_t height = config->Get(v8::String::New("height"))->Uint32Value();
+  uint32_t numerator = 0;
+  uint32_t denominator = 0;
+  auto pinterval = config->Get(v8::String::New("interval"));
+  if (pinterval->IsObject()) {
+    auto interval = pinterval->ToObject();
+    numerator = interval->Get(v8::String::New("numerator"))->Uint32Value();
+    denominator = interval->Get(v8::String::New("denominator"))->Uint32Value();
+  }
+  camera_config_t cconfig = {0, width, height, {numerator, denominator}};
+  auto thisObj = args.This();
+  auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
+  auto camera = static_cast<camera_t*>(xcamera->Value());
+  if (!camera_config(camera, &cconfig)) return throwError(camera);
   thisObj->Set(v8::String::NewSymbol("width"), 
                v8::Integer::NewFromUnsigned(camera->width));
   thisObj->Set(v8::String::NewSymbol("height"), 
@@ -167,6 +187,10 @@ static v8::Handle<v8::Value> cameraStart(const v8::Arguments& args)
   auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
   auto camera = static_cast<camera_t*>(xcamera->Value());
   if (!camera_start(camera)) return throwError(camera);
+  thisObj->Set(v8::String::NewSymbol("width"), 
+               v8::Integer::NewFromUnsigned(camera->width));
+  thisObj->Set(v8::String::NewSymbol("height"), 
+               v8::Integer::NewFromUnsigned(camera->height));
   return scope.Close(thisObj);
 }
 
@@ -295,6 +319,8 @@ static void moduleInit(v8::Handle<v8::Object> exports)
   clazz->SetClassName(v8::String::NewSymbol("Camera"));
   clazz->InstanceTemplate()->SetInternalFieldCount(1);
   auto proto = clazz->PrototypeTemplate();
+  proto->Set(v8::String::NewSymbol("config"),
+             v8::FunctionTemplate::New(cameraConfig)->GetFunction());
   proto->Set(v8::String::NewSymbol("start"),
              v8::FunctionTemplate::New(cameraStart)->GetFunction());
   proto->Set(v8::String::NewSymbol("stop"),
