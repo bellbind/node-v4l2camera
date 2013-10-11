@@ -35,11 +35,23 @@ For more detail see: examples/*.js (required "pngjs" or native "png" modules)
 
 ## API
 
-Capturing API
+Initializing API
 
 - `var cam = new v4l2camera.Camera(device)`
-- `cam.config{width: w, height: h, interval: {numerator: n, denominator: d}})`
-  : set capture width, height and interval per `n/d` sec (e.g. 30fps is 1/30)
+- `cam.formats`: Array of available frame formats
+- `var format = cam.formats[n]`
+    - `format.formatName`: name of pixel format. e.g. `"YUYV"`
+    - `format.format`: id of pixel format
+    - `format.width`: frame width
+    - `format.height`: frame height
+    - `format.interval.numerator` and `format.interval.denominator`
+      : capturing interval per `numerator/denominator` seconds 
+      (e.g. 30fps is 1/30)
+- `cam.config({width: w, height: h, interval: {numerator: n, denominator: d}})`
+  : set capture width, height and interval per `n/d` sec
+
+Capturing API
+
 - `cam.start()`
 - `cam.stop()`
 - `cam.capture(afterCaptured)`: cache a current captured frame

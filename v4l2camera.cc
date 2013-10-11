@@ -119,6 +119,32 @@ static v8::Local<v8::Object> cameraControls(camera_t* camera)
   return controls;
 }
 
+static v8::Local<v8::Object> cameraFormats(camera_t* camera)
+{
+  auto cformats = camera_formats_new(camera);
+  auto formats = v8::Array::New(cformats->length);
+  for (size_t i = 0; i < cformats->length; i++) {
+    auto cformat = &cformats->head[i];
+    char name[5];
+    camera_format_name(cformat->format, name);
+    auto format = v8::Object::New();
+    formats->Set(i, format);
+    format->Set(v8::String::NewSymbol("formatName"), v8::String::New(name));
+    format->Set(v8::String::NewSymbol("format"), 
+                v8::Integer::NewFromUnsigned(cformat->format));
+    format->Set(v8::String::NewSymbol("width"), 
+                v8::Integer::NewFromUnsigned(cformat->width));
+    format->Set(v8::String::NewSymbol("height"), 
+                v8::Integer::NewFromUnsigned(cformat->height));
+    auto interval = v8::Object::New();
+    format->Set(v8::String::NewSymbol("interval"), interval);
+    interval->Set(v8::String::NewSymbol("numerator"),
+                  v8::Integer::NewFromUnsigned(cformat->interval.numerator));
+    interval->Set(v8::String::NewSymbol("denominator"),
+                  v8::Integer::NewFromUnsigned(cformat->interval.denominator));
+  }
+  return formats;
+}
 static void cameraDelete(v8::Persistent<v8::Value> handle, void* param)
 {
   auto camera = static_cast<camera_t*>(param);
@@ -145,6 +171,7 @@ static v8::Handle<v8::Value> cameraNew(const v8::Arguments& args)
   thisObj->SetInternalField(0, v8::External::New(camera));
   auto holder = v8::Persistent<v8::Object>::New(thisObj);
   holder.MakeWeak(camera, cameraDelete);
+  thisObj->Set(v8::String::NewSymbol("formats"), cameraFormats(camera));
   thisObj->Set(v8::String::NewSymbol("controls"), cameraControls(camera));
   thisObj->Set(v8::String::NewSymbol("device"), args[0]);
   return scope.Close(thisObj);
@@ -311,6 +338,8 @@ static v8::Handle<v8::Value> cameraControlSet(const v8::Arguments& args)
   if (!success) return throwError(camera);
   return scope.Close(thisObj);
 }
+
+
 
 static void moduleInit(v8::Handle<v8::Object> exports)
 {
