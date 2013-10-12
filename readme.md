@@ -17,6 +17,8 @@ On linux machines:
 npm install v4l2camera
 ```
 
+- https://npmjs.org/package/v4l2camera
+
 ## Usage
 
 ```js
