@@ -1,7 +1,7 @@
 # make -f c-examples.makefile
 
 CC = gcc
-CFLAGS = -std=c11 -Wall -Wextra -pedantic
+CFLAGS = -std=c11 -Wall -Wextra -Wno-unused-parameter -pedantic
 all: capture-jpeg list-controls list-formats
 
 capture-jpeg: capture.h capture.c c-examples/capture-jpeg.c

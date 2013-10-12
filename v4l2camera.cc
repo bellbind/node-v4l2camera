@@ -238,7 +238,7 @@ struct CaptureData {
 static void cameraCaptureClose(uv_handle_t* handle) {
   delete handle;
 }
-static void cameraCaptureCB(uv_poll_t* handle, int status, int events)
+static void cameraCaptureCB(uv_poll_t* handle, int /*status*/, int /*events*/)
 {
   v8::HandleScope scope;
   auto data = static_cast<CaptureData*>(handle->data);
