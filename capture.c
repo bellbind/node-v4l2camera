@@ -9,6 +9,7 @@
 #include <sys/mman.h>
 #include <linux/videodev2.h>
 
+
 uint32_t camera_format_id(const char* name)
 {
   //assert(strlen(name) == 4);
@@ -50,7 +51,7 @@ static bool failure(camera_t* camera, const char * msg)
   return false;
 }
 
-static int xioctl(int fd, int request, void* arg)
+static int xioctl(int fd, unsigned long int request, void* arg)
 {
   for (int i = 0; i < 100; i++) {
     int r = ioctl(fd, request, arg);
@@ -112,7 +113,7 @@ static bool camera_init(camera_t* camera) {
   }
   camera->initialized = true;
   return true;
-};
+}
 
 static bool camera_buffer_prepare(camera_t* camera)
 {

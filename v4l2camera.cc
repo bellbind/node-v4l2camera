@@ -367,6 +367,7 @@ static void moduleInit(v8::Handle<v8::Object> exports)
   auto ctor = v8::Local<v8::Function>::New(clazz->GetFunction());
   exports->Set(v8::String::NewSymbol("Camera"), ctor);
 }
-NODE_MODULE(v4l2camera, moduleInit);
+
+NODE_MODULE(v4l2camera, moduleInit)
 
 }
