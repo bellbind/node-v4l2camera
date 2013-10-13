@@ -17,7 +17,7 @@ On linux machines:
 npm install v4l2camera
 ```
 
-- https://npmjs.org/package/v4l2camera
+- package details: https://npmjs.org/package/v4l2camera
 
 ## Usage
 
@@ -42,24 +42,24 @@ Initializing API
 - `var cam = new v4l2camera.Camera(device)`
 - `cam.formats`: Array of available frame formats
 - `var format = cam.formats[n]`
-    - `format.formatName`: name of pixel format. e.g. `"YUYV"`
-    - `format.format`: id of pixel format
-    - `format.width`: frame width
-    - `format.height`: frame height
+    - `format.formatName`: Name of pixel format. e.g. `"YUYV"`
+    - `format.format`: ID number of pixel format
+    - `format.width`: Frame width
+    - `format.height`: Frame height
     - `format.interval.numerator` and `format.interval.denominator`
-      : capturing interval per `numerator/denominator` seconds 
+      : Capturing interval per `numerator/denominator` seconds 
       (e.g. 30fps is 1/30)
 - `cam.config({width: w, height: h, interval: {numerator: n, denominator: d}})`
-  : set capture width, height and interval per `n/d` sec
+  : Set capture width, height and interval per `n/d` sec
 
 Capturing API
 
 - `cam.start()`
 - `cam.stop()`
-- `cam.capture(afterCaptured)`: cache a current captured frame
+- `cam.capture(afterCaptured)`: Do cache a current captured frame
     - call `cam.toRGB()` in `afterCaptured(true)` callback
-- `cam.toYUYV()`: get the cached frame as 8bit int Array of pixels YUYVYUYV...
-- `cam.toRGB()`: get the cached frame as 8bit int Array of pixels RGBRGB...
+- `cam.toYUYV()`: Get the cached frame as 8bit int Array of pixels YUYVYUYV...
+- `cam.toRGB()`: Get the cached frame as 8bit int Array of pixels RGBRGB...
 - `cam.device`
 - `cam.width`
 - `cam.height`
@@ -67,9 +67,9 @@ Capturing API
 Control API
 
 - `cam.controls`: Array of the control information
-- `cam.controlGet(id)`: Get int value of the control of `id`
+- `cam.controlGet(id)`: Get int value of the control of the `id`
   (id is one of cam.controls[n].id)
-- `cam.controlSet(id, value)`: Set int value of the control of `id`
+- `cam.controlSet(id, value)`: Set int value of the control of the `id`
 - `var control = cam.controls[n]`: Control spec
     - `control.id`: Control `id` for controlGet and controlSet
     - `control.name`: Control name string

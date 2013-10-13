@@ -9,365 +9,364 @@
 #include <string>
 #include <sstream>
 
-#include <iostream>
 
 namespace {
-
-struct LogContext {
-  std::string msg;
-};
-static void logRecord(camera_log_t type, const char* msg, void* pointer)
-{
-  std::stringstream ss;
-  switch (type) {
-  case CAMERA_ERROR:
-    ss << "CAMERA ERROR [" << msg << "] " << errno << " " << strerror(errno);
-    break;
-  case CAMERA_FAIL:
-    ss << "CAMERA FAIL [" << msg << "]";
-    break;
-  case CAMERA_INFO:
-    ss << "CAMERA INFO [" << msg << "]";
-    break;
+  
+  class Camera : node::ObjectWrap {
+  public:
+    static void Init(v8::Handle<v8::Object> exports);
+  private:
+    static v8::Handle<v8::Value> New(const v8::Arguments& args);
+    static v8::Handle<v8::Value> Config(const v8::Arguments& args);
+    static v8::Handle<v8::Value> Start(const v8::Arguments& args);
+    static v8::Handle<v8::Value> Stop(const v8::Arguments& args);
+    static v8::Handle<v8::Value> Capture(const v8::Arguments& args);
+    static v8::Handle<v8::Value> ToYUYV(const v8::Arguments& args);
+    static v8::Handle<v8::Value> ToRGB(const v8::Arguments& args);
+    static v8::Handle<v8::Value> ControlGet(const v8::Arguments& args);
+    static v8::Handle<v8::Value> ControlSet(const v8::Arguments& args);
+    
+    static v8::Local<v8::Object> Controls(camera_t* camera);  
+    static v8::Local<v8::Object> Formats(camera_t* camera);  
+    static void CaptureCB(uv_poll_t* handle, int status, int events);
+    Camera();
+    ~Camera();
+    camera_t* camera;
+  };
+  
+  //[error message handling]
+  struct LogContext {
+    std::string msg;
+  };
+  static void logRecord(camera_log_t type, const char* msg, void* pointer) {
+    std::stringstream ss;
+    switch (type) {
+    case CAMERA_ERROR:
+      ss << "CAMERA ERROR [" << msg << "] " << errno << " " << strerror(errno);
+      break;
+    case CAMERA_FAIL:
+      ss << "CAMERA FAIL [" << msg << "]";
+      break;
+    case CAMERA_INFO:
+      ss << "CAMERA INFO [" << msg << "]";
+      break;
+    }
+    static_cast<LogContext*>(pointer)->msg = ss.str();
   }
-  static_cast<LogContext*>(pointer)->msg = ss.str();
-}
-
-static v8::Handle<v8::Value> throwError(const char* msg)
-{
-  auto message = v8::String::New(msg);
-  return v8::ThrowException(v8::Exception::Error(message));
-}
-
-static v8::Handle<v8::Value> throwError(camera_t* camera)
-{
-  auto ctx = static_cast<LogContext*>(camera->context.pointer);
-  return throwError(ctx->msg.c_str());
-}
-
-static const char* control_type_names[] = {
-  "invalid",
-  "int",
-  "bool",
-  "menu",
-  "int64",
-  "class"
-  "string",
-  "bitmask",
-  "int_menu",
-};
-static v8::Local<v8::Object> cameraControls(camera_t* camera)
-{
-  auto ccontrols = camera_controls_new(camera);
-  auto controls = v8::Array::New(ccontrols->length);
-  for (size_t i = 0; i < ccontrols->length; i++) {
-    auto ccontrol = &ccontrols->head[i];
-    auto control = v8::Object::New();
-    auto name = v8::String::New(reinterpret_cast<char*>(ccontrol->name));
-    controls->Set(i, control);
-    controls->Set(name, control);
-    control->Set(v8::String::NewSymbol("id"), 
-                 v8::Integer::NewFromUnsigned(ccontrol->id));
-    control->Set(v8::String::NewSymbol("name"), name);
-    control->Set(v8::String::NewSymbol("type"), 
-                 v8::String::New(control_type_names[ccontrol->type]));
-    control->Set(v8::String::NewSymbol("min"), 
-                 v8::Integer::NewFromUnsigned(ccontrol->min));
-    control->Set(v8::String::NewSymbol("max"), 
-                 v8::Integer::NewFromUnsigned(ccontrol->max));
-    control->Set(v8::String::NewSymbol("step"), 
-                 v8::Integer::NewFromUnsigned(ccontrol->step));
-    control->Set(v8::String::NewSymbol("default"), 
-                 v8::Integer::NewFromUnsigned(ccontrol->default_value));
-    auto flags = v8::Object::New();
-    control->Set(v8::String::NewSymbol("flags"), flags);
-    flags->Set(v8::String::NewSymbol("disabled"), 
-               v8::Boolean::New(ccontrol->flags.disabled));
-    flags->Set(v8::String::NewSymbol("grabbed"), 
-               v8::Boolean::New(ccontrol->flags.grabbed));
-    flags->Set(v8::String::NewSymbol("readOnly"), 
-               v8::Boolean::New(ccontrol->flags.read_only));
-    flags->Set(v8::String::NewSymbol("update"), 
-               v8::Boolean::New(ccontrol->flags.update));
-    flags->Set(v8::String::NewSymbol("inactive"), 
-               v8::Boolean::New(ccontrol->flags.inactive));
-    flags->Set(v8::String::NewSymbol("slider"), 
-               v8::Boolean::New(ccontrol->flags.slider));
-    flags->Set(v8::String::NewSymbol("writeOnly"), 
-               v8::Boolean::New(ccontrol->flags.write_only));
-    flags->Set(v8::String::NewSymbol("volatile"), 
-               v8::Boolean::New(ccontrol->flags.volatile_value));
-    auto menu = v8::Array::New(ccontrol->menus.length);
-    control->Set(v8::String::NewSymbol("menu"), menu);
-    switch (ccontrol->type) {
-    case CAMERA_CTRL_MENU:
-      for (size_t j = 0; j < ccontrol->menus.length; j++) {
-        auto value = reinterpret_cast<char*>(ccontrol->menus.head[j].name);
-        menu->Set(j, v8::String::New(value));
+  
+  static inline v8::Handle<v8::Value> throwTypeError(const char* msg) {
+    auto message = v8::String::New(msg);
+    return v8::ThrowException(v8::Exception::TypeError(message));
+  }
+  static inline v8::Handle<v8::Value> throwError(const char* msg) {
+    auto message = v8::String::New(msg);
+    return v8::ThrowException(v8::Exception::Error(message));
+  }
+  static inline v8::Handle<v8::Value> throwError(camera_t* camera) {
+    auto ctx = static_cast<LogContext*>(camera->context.pointer);
+    return throwError(ctx->msg.c_str());
+  }
+  
+  // helper
+  static inline v8::Local<v8::Value> 
+  getValue(v8::Local<v8::Object> self, const char* name) {
+    return self->Get(v8::String::NewSymbol(name));
+  }
+  static inline int32_t
+  getInt(v8::Local<v8::Object> self, const char* name) {
+    return getValue(self, name)->Int32Value();
+  }
+  static inline uint32_t
+  getUint(v8::Local<v8::Object> self, const char* name) {
+    return getValue(self, name)->Uint32Value();
+  }
+  
+  static inline void 
+  setValue(v8::Local<v8::Object> self, const char* name, 
+           v8::Handle<v8::Value> value) {
+    self->Set(v8::String::NewSymbol(name), value);
+  }
+  static inline void 
+  setInt(v8::Local<v8::Object> self, const char* name, int32_t value) {
+    setValue(self, name, v8::Integer::New(value));
+  }
+  static inline void 
+  setUint(v8::Local<v8::Object> self, const char* name, uint32_t value) {
+    setValue(self, name, v8::Integer::NewFromUnsigned(value));
+  }
+  static inline void 
+  setString(v8::Local<v8::Object> self, const char* name, const char* value) {
+    setValue(self, name, v8::String::New(value));
+  }
+  static inline void 
+  setBool(v8::Local<v8::Object> self, const char* name, bool value) {
+    setValue(self, name, v8::Boolean::New(value));
+  }
+  
+  //[methods]
+  static const char* control_type_names[] = {
+    "invalid",
+    "int",
+    "bool",
+    "menu",
+    "int64",
+    "class"
+    "string",
+    "bitmask",
+    "int_menu",
+  };
+  v8::Local<v8::Object> Camera::Controls(camera_t* camera) {
+    auto ccontrols = camera_controls_new(camera);
+    auto controls = v8::Array::New(ccontrols->length);
+    for (size_t i = 0; i < ccontrols->length; i++) {
+      auto ccontrol = &ccontrols->head[i];
+      auto control = v8::Object::New();
+      auto name = v8::String::New(reinterpret_cast<char*>(ccontrol->name));
+      controls->Set(i, control);
+      controls->Set(name, control);
+      setUint(control, "id", ccontrol->id);
+      setValue(control, "name", name);
+      setString(control, "type", control_type_names[ccontrol->type]);
+      setInt(control, "min", ccontrol->min);
+      setInt(control, "max", ccontrol->max);
+      setInt(control, "step", ccontrol->step);
+      setInt(control, "default", ccontrol->default_value);
+      auto flags = v8::Object::New();
+      setValue(control, "flags", flags);
+      setBool(flags, "disabled", ccontrol->flags.disabled);
+      setBool(flags, "grabbed", ccontrol->flags.grabbed);
+      setBool(flags, "readOnly", ccontrol->flags.read_only);
+      setBool(flags, "update", ccontrol->flags.update);
+      setBool(flags, "inactive", ccontrol->flags.inactive);
+      setBool(flags, "slider", ccontrol->flags.slider);
+      setBool(flags, "writeOnly", ccontrol->flags.write_only);
+      setBool(flags, "volatile", ccontrol->flags.volatile_value);
+      auto menu = v8::Array::New(ccontrol->menus.length);
+      setValue(control, "menu", menu);
+      switch (ccontrol->type) {
+      case CAMERA_CTRL_MENU:
+        for (size_t j = 0; j < ccontrol->menus.length; j++) {
+          auto value = reinterpret_cast<char*>(ccontrol->menus.head[j].name);
+          menu->Set(j, v8::String::New(value));
+        }
+        break;
+      case CAMERA_CTRL_INTEGER_MENU:
+        for (size_t j = 0; j < ccontrol->menus.length; j++) {
+          auto value = static_cast<int32_t>(ccontrol->menus.head[j].value);
+          menu->Set(j, v8::Integer::New(value));
+        }
+        break;
+      default: break;
       }
-      break;
-    case CAMERA_CTRL_INTEGER_MENU:
-      for (size_t j = 0; j < ccontrol->menus.length; j++) {
-        auto value = static_cast<int32_t>(ccontrol->menus.head[j].value);
-        menu->Set(j, v8::Integer::New(value));
-      }
-      break;
-    default: break;
+    }
+    camera_controls_delete(ccontrols);
+    return controls;
+  }
+  
+  v8::Local<v8::Object> Camera::Formats(camera_t* camera) {
+    auto cformats = camera_formats_new(camera);
+    auto formats = v8::Array::New(cformats->length);
+    for (size_t i = 0; i < cformats->length; i++) {
+      auto cformat = &cformats->head[i];
+      char name[5];
+      camera_format_name(cformat->format, name);
+      auto format = v8::Object::New();
+      formats->Set(i, format);
+      setString(format, "formatName", name);
+      setUint(format, "format", cformat->format);
+      setUint(format, "width", cformat->width);
+      setUint(format, "height", cformat->height);
+      auto interval = v8::Object::New();
+      setValue(format, "interval", interval);
+      setUint(interval, "numerator", cformat->interval.numerator);
+      setUint(interval, "denominator", cformat->interval.denominator);
+    }
+    return formats;
+  }
+  
+  //[initializer]
+  Camera::Camera() : camera(nullptr) {}
+  Camera::~Camera() {
+    if (camera) {
+      auto ctx = static_cast<LogContext*>(camera->context.pointer);
+      camera_close(camera);
+      delete ctx;
     }
   }
-  camera_controls_delete(ccontrols);
-  return controls;
-}
-
-static v8::Local<v8::Object> cameraFormats(camera_t* camera)
-{
-  auto cformats = camera_formats_new(camera);
-  auto formats = v8::Array::New(cformats->length);
-  for (size_t i = 0; i < cformats->length; i++) {
-    auto cformat = &cformats->head[i];
-    char name[5];
-    camera_format_name(cformat->format, name);
-    auto format = v8::Object::New();
-    formats->Set(i, format);
-    format->Set(v8::String::NewSymbol("formatName"), v8::String::New(name));
-    format->Set(v8::String::NewSymbol("format"), 
-                v8::Integer::NewFromUnsigned(cformat->format));
-    format->Set(v8::String::NewSymbol("width"), 
-                v8::Integer::NewFromUnsigned(cformat->width));
-    format->Set(v8::String::NewSymbol("height"), 
-                v8::Integer::NewFromUnsigned(cformat->height));
-    auto interval = v8::Object::New();
-    format->Set(v8::String::NewSymbol("interval"), interval);
-    interval->Set(v8::String::NewSymbol("numerator"),
-                  v8::Integer::NewFromUnsigned(cformat->interval.numerator));
-    interval->Set(v8::String::NewSymbol("denominator"),
-                  v8::Integer::NewFromUnsigned(cformat->interval.denominator));
+  v8::Handle<v8::Value> Camera::New(const v8::Arguments& args) {
+    v8::HandleScope scope;
+    if (args.Length() < 1) return throwTypeError("argument required: device");
+    v8::String::Utf8Value device(args[0]->ToString());
+    auto camera = camera_open(*device);
+    if (!camera) return throwError(strerror(errno));
+    camera->context.pointer = new LogContext;
+    camera->context.log = &logRecord;
+    
+    auto thisObj = args.This();
+    auto self = new Camera();
+    self->camera = camera;
+    self->Wrap(thisObj);
+    setValue(thisObj, "device", args[0]);
+    setValue(thisObj, "formats", Formats(camera));
+    setValue(thisObj, "controls", Controls(camera));
+    return scope.Close(thisObj);
   }
-  return formats;
-}
-static void cameraDelete(v8::Persistent<v8::Value> handle, void* param)
-{
-  auto camera = static_cast<camera_t*>(param);
-  auto ctx = static_cast<LogContext*>(camera->context.pointer);
-  camera_close(camera);
-  delete ctx;
-  handle.Dispose();
-}
-static v8::Handle<v8::Value> cameraNew(const v8::Arguments& args)
-{
-  v8::HandleScope scope;
-  if (args.Length() < 1) {
-    auto msg = v8::String::New("argument required: device");
-    return v8::ThrowException(v8::Exception::TypeError(msg));
-  }
-  v8::String::Utf8Value u8device(args[0]->ToString());
-  const char* device = *u8device;
   
-  auto camera = camera_open(device);
-  if (!camera) return throwError(strerror(errno));
-  camera->context.pointer = new LogContext;
-  camera->context.log = &logRecord;
-  auto thisObj = args.This();
-  thisObj->SetInternalField(0, v8::External::New(camera));
-  auto holder = v8::Persistent<v8::Object>::New(thisObj);
-  holder.MakeWeak(camera, cameraDelete);
-  thisObj->Set(v8::String::NewSymbol("formats"), cameraFormats(camera));
-  thisObj->Set(v8::String::NewSymbol("controls"), cameraControls(camera));
-  thisObj->Set(v8::String::NewSymbol("device"), args[0]);
-  return scope.Close(thisObj);
-}
-
-static v8::Handle<v8::Value> cameraConfig(const v8::Arguments& args)
-{
-  v8::HandleScope scope;
-  if (args.Length() < 1) {
-    auto msg = v8::String::New("argument required: config");
-    return v8::ThrowException(v8::Exception::TypeError(msg));
+  v8::Handle<v8::Value> Camera::Config(const v8::Arguments& args) {
+    v8::HandleScope scope;
+    if (args.Length() < 1) throwTypeError("argument required: config");
+    auto config = args[0]->ToObject();
+    uint32_t width = getUint(config, "width");
+    uint32_t height = getUint(config, "height");
+    uint32_t numerator = 0;
+    uint32_t denominator = 0;
+    auto pinterval = getValue(config, "interval");
+    if (pinterval->IsObject()) {
+      auto interval = pinterval->ToObject();
+      numerator = getUint(interval, "numerator");
+      denominator = getUint(interval, "denominator");
+    }
+    camera_config_t cconfig = {0, width, height, {numerator, denominator}};
+    auto thisObj = args.This();
+    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    if (!camera_config(camera, &cconfig)) return throwError(camera);
+    setUint(thisObj, "width", camera->width);
+    setUint(thisObj, "height", camera->height);
+    return scope.Close(thisObj);
   }
-  auto config = args[0]->ToObject();
-  uint32_t width = config->Get(v8::String::New("width"))->Uint32Value();
-  uint32_t height = config->Get(v8::String::New("height"))->Uint32Value();
-  uint32_t numerator = 0;
-  uint32_t denominator = 0;
-  auto pinterval = config->Get(v8::String::New("interval"));
-  if (pinterval->IsObject()) {
-    auto interval = pinterval->ToObject();
-    numerator = interval->Get(v8::String::New("numerator"))->Uint32Value();
-    denominator = interval->Get(v8::String::New("denominator"))->Uint32Value();
-  }
-  camera_config_t cconfig = {0, width, height, {numerator, denominator}};
-  auto thisObj = args.This();
-  auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
-  auto camera = static_cast<camera_t*>(xcamera->Value());
-  if (!camera_config(camera, &cconfig)) return throwError(camera);
-  thisObj->Set(v8::String::NewSymbol("width"), 
-               v8::Integer::NewFromUnsigned(camera->width));
-  thisObj->Set(v8::String::NewSymbol("height"), 
-               v8::Integer::NewFromUnsigned(camera->height));
-  return scope.Close(thisObj);
-}
-
-static v8::Handle<v8::Value> cameraStart(const v8::Arguments& args)
-{
-  v8::HandleScope scope;
-  auto thisObj = args.This();
-  auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
-  auto camera = static_cast<camera_t*>(xcamera->Value());
-  if (!camera_start(camera)) return throwError(camera);
-  thisObj->Set(v8::String::NewSymbol("width"), 
-               v8::Integer::NewFromUnsigned(camera->width));
-  thisObj->Set(v8::String::NewSymbol("height"), 
-               v8::Integer::NewFromUnsigned(camera->height));
-  return scope.Close(thisObj);
-}
-
-static v8::Handle<v8::Value> cameraStop(const v8::Arguments& args)
-{
-  v8::HandleScope scope;
-  auto thisObj = args.This();
-  auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
-  auto camera = static_cast<camera_t*>(xcamera->Value());
-  if (!camera_stop(camera)) return throwError(camera);
-  return scope.Close(thisObj);
-}
-
-struct CaptureData {
-  v8::Persistent<v8::Object> thisObj;
-  v8::Persistent<v8::Function> callback;
-};
-static void cameraCaptureClose(uv_handle_t* handle) {
-  delete handle;
-}
-static void cameraCaptureCB(uv_poll_t* handle, int /*status*/, int /*events*/)
-{
-  v8::HandleScope scope;
-  auto data = static_cast<CaptureData*>(handle->data);
-  uv_poll_stop(handle);
-  uv_close(reinterpret_cast<uv_handle_t*>(handle), cameraCaptureClose);
   
-  auto thisObj = v8::Local<v8::Object>::New(data->thisObj);
-  auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
-  auto camera = static_cast<camera_t*>(xcamera->Value());
-  bool captured = camera_capture(camera);
-  v8::Local<v8::Value> argv[] = {
-    v8::Local<v8::Value>::New(v8::Boolean::New(captured))
+  v8::Handle<v8::Value> Camera::Start(const v8::Arguments& args) {
+    v8::HandleScope scope;
+    auto thisObj = args.This();
+    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    if (!camera_start(camera)) return throwError(camera);
+    setUint(thisObj, "width", camera->width);
+    setUint(thisObj, "height", camera->height);
+    return scope.Close(thisObj);
+  }
+  
+  v8::Handle<v8::Value> Camera::Stop(const v8::Arguments& args) {
+    v8::HandleScope scope;
+    auto thisObj = args.This();
+    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    if (!camera_stop(camera)) return throwError(camera);
+    return scope.Close(thisObj);
+  }
+  
+  struct CaptureData {
+    v8::Persistent<v8::Object> thisObj;
+    v8::Persistent<v8::Function> callback;
   };
-  data->callback->Call(thisObj, 1, argv);
-  data->thisObj.Dispose();
-  data->callback.Dispose();
-  delete data;
-}
-static v8::Handle<v8::Value> cameraCapture(const v8::Arguments& args)
-{
-  v8::HandleScope scope;
-  auto data = new CaptureData;
-  data->thisObj = v8::Persistent<v8::Object>::New(args.This());
-  data->callback = 
-    v8::Persistent<v8::Function>::New(args[0].As<v8::Function>());
-  auto xcamera = 
-    v8::Local<v8::External>::Cast(data->thisObj->GetInternalField(0));
-  auto camera = static_cast<camera_t*>(xcamera->Value());
-
-  uv_poll_t* handle = new uv_poll_t;
-  handle->data = data;
-  uv_poll_init(uv_default_loop(), handle, camera->fd);
-  uv_poll_start(handle, UV_READABLE, cameraCaptureCB);
-  return v8::Undefined();
-}
-
-static v8::Handle<v8::Value> cameraToYUYV(const v8::Arguments& args)
-{
-  v8::HandleScope scope;
-  auto thisObj = args.This();
-  auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
-  auto camera = static_cast<camera_t*>(xcamera->Value());
-  int size = camera->width * camera->height * 2;
-  auto ret  = v8::Array::New(size);
-  for (int i = 0; i < size; i++) {
-    ret->Set(i, v8::Integer::NewFromUnsigned(camera->head.start[i]));
+  void Camera::CaptureCB(uv_poll_t* handle, int /*status*/, int /*events*/) {
+    v8::HandleScope scope;
+    auto data = static_cast<CaptureData*>(handle->data);
+    uv_poll_stop(handle);
+    uv_close(reinterpret_cast<uv_handle_t*>(handle), 
+             [](uv_handle_t* handle) -> void {delete handle;});
+    
+    auto thisObj = v8::Local<v8::Object>::New(data->thisObj);
+    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    bool captured = camera_capture(camera);
+    v8::Local<v8::Value> argv[] = {
+      v8::Local<v8::Value>::New(v8::Boolean::New(captured)),
+    };
+    data->callback->Call(thisObj, 1, argv);
+    data->thisObj.Dispose();
+    data->callback.Dispose();
+    delete data;
   }
-  return scope.Close(ret);
-}
-
-static v8::Handle<v8::Value> cameraToRGB(const v8::Arguments& args)
-{
-  v8::HandleScope scope;
-  auto thisObj = args.This();
-  auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
-  auto camera = static_cast<camera_t*>(xcamera->Value());
-  auto rgb = yuyv2rgb(camera->head.start, camera->width, camera->height);
-  int size = camera->width * camera->height * 3;
-  auto ret  = v8::Array::New(size);
-  for (int i = 0; i < size; i++) {
-    ret->Set(i, v8::Integer::NewFromUnsigned(rgb[i]));
+  v8::Handle<v8::Value> Camera::Capture(const v8::Arguments& args) {
+    v8::HandleScope scope;
+    auto data = new CaptureData;
+    auto thisObj = args.This();
+    data->thisObj = v8::Persistent<v8::Object>::New(thisObj);
+    data->callback = 
+      v8::Persistent<v8::Function>::New(args[0].As<v8::Function>());
+    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    
+    uv_poll_t* handle = new uv_poll_t;
+    handle->data = data;
+    uv_poll_init(uv_default_loop(), handle, camera->fd);
+    uv_poll_start(handle, UV_READABLE, Camera::CaptureCB);
+    return v8::Undefined();
   }
-  free(rgb);
-  return scope.Close(ret);
-}
-
-static v8::Handle<v8::Value> cameraControlGet(const v8::Arguments& args)
-{
-  v8::HandleScope scope;
-  if (args.Length() < 1) {
-    auto msg = v8::String::New("an argument required: id");
-    return v8::ThrowException(v8::Exception::TypeError(msg));
+  
+  v8::Handle<v8::Value> Camera::ToYUYV(const v8::Arguments& args) {
+    v8::HandleScope scope;
+    auto thisObj = args.This();
+    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    int size = camera->width * camera->height * 2;
+    auto ret  = v8::Array::New(size);
+    for (int i = 0; i < size; i++) {
+      ret->Set(i, v8::Integer::NewFromUnsigned(camera->head.start[i]));
+    }
+    return scope.Close(ret);
   }
-  uint32_t id = args[0]->Uint32Value();
-  auto thisObj = args.This();
-  auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
-  auto camera = static_cast<camera_t*>(xcamera->Value());
-  int32_t value = 0;
-  bool success = camera_control_get(camera, id, &value);
-  if (!success) return throwError(camera);
-  return scope.Close(v8::Integer::New(value));
-}
-
-static v8::Handle<v8::Value> cameraControlSet(const v8::Arguments& args)
-{
-  v8::HandleScope scope;
-  if (args.Length() < 2) {
-    auto msg = v8::String::New("an argument required: id, value");
-    return v8::ThrowException(v8::Exception::TypeError(msg));
+  
+  v8::Handle<v8::Value> Camera::ToRGB(const v8::Arguments& args) {
+    v8::HandleScope scope;
+    auto thisObj = args.This();
+    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    auto rgb = yuyv2rgb(camera->head.start, camera->width, camera->height);
+    int size = camera->width * camera->height * 3;
+    auto ret  = v8::Array::New(size);
+    for (int i = 0; i < size; i++) {
+      ret->Set(i, v8::Integer::NewFromUnsigned(rgb[i]));
+    }
+    free(rgb);
+    return scope.Close(ret);
   }
-  uint32_t id = args[0]->Uint32Value();
-  int32_t value = args[1]->Int32Value();
-  auto thisObj = args.This();
-  auto xcamera = v8::Local<v8::External>::Cast(thisObj->GetInternalField(0));
-  auto camera = static_cast<camera_t*>(xcamera->Value());
-  bool success = camera_control_set(camera, id, value);
-  if (!success) return throwError(camera);
-  return scope.Close(thisObj);
+  
+  v8::Handle<v8::Value> Camera::ControlGet(const v8::Arguments& args) {
+    v8::HandleScope scope;
+    if (args.Length() < 1) return throwTypeError("an argument required: id");
+    uint32_t id = args[0]->Uint32Value();
+    auto thisObj = args.This();
+    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    int32_t value = 0;
+    bool success = camera_control_get(camera, id, &value);
+    if (!success) return throwError(camera);
+    return scope.Close(v8::Integer::New(value));
+  }
+  
+  v8::Handle<v8::Value> Camera::ControlSet(const v8::Arguments& args) {
+    v8::HandleScope scope;
+    if (args.Length() < 2) 
+      return throwTypeError("arguments required: id, value");
+    uint32_t id = args[0]->Uint32Value();
+    int32_t value = args[1]->Int32Value();
+    auto thisObj = args.This();
+    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    bool success = camera_control_set(camera, id, value);
+    if (!success) return throwError(camera);
+    return scope.Close(thisObj);
+  }
+  
+  
+  //[module init]
+  static inline void 
+  setMethod(v8::Local<v8::ObjectTemplate> proto, const char* name, 
+            v8::Handle<v8::Value> (*func)(const v8::Arguments& args)) {
+    auto funcValue = v8::FunctionTemplate::New(func)->GetFunction();
+    proto->Set(v8::String::NewSymbol(name), funcValue);
+  }
+  void Camera::Init(v8::Handle<v8::Object> exports) {
+    v8::HandleScope scope;
+    auto name = v8::String::NewSymbol("Camera");
+    auto clazz = v8::FunctionTemplate::New(New);
+    clazz->SetClassName(name);
+    clazz->InstanceTemplate()->SetInternalFieldCount(1);
+    auto proto = clazz->PrototypeTemplate();
+    setMethod(proto, "config", Config);
+    setMethod(proto, "start", Start);
+    setMethod(proto, "stop", Stop);
+    setMethod(proto, "capture", Capture);
+    setMethod(proto, "toYUYV", ToYUYV);
+    setMethod(proto, "toRGB", ToRGB);
+    setMethod(proto, "controlGet", ControlGet);
+    setMethod(proto, "controlSet", ControlSet);
+    auto ctor = v8::Local<v8::Function>::New(clazz->GetFunction());
+    exports->Set(name, ctor);
+  }
 }
-
-
-
-static void moduleInit(v8::Handle<v8::Object> exports)
-{
-  v8::HandleScope scope;  
-  auto clazz = v8::FunctionTemplate::New(cameraNew);
-  clazz->SetClassName(v8::String::NewSymbol("Camera"));
-  clazz->InstanceTemplate()->SetInternalFieldCount(1);
-  auto proto = clazz->PrototypeTemplate();
-  proto->Set(v8::String::NewSymbol("config"),
-             v8::FunctionTemplate::New(cameraConfig)->GetFunction());
-  proto->Set(v8::String::NewSymbol("start"),
-             v8::FunctionTemplate::New(cameraStart)->GetFunction());
-  proto->Set(v8::String::NewSymbol("stop"),
-             v8::FunctionTemplate::New(cameraStop)->GetFunction());
-  proto->Set(v8::String::NewSymbol("capture"),
-             v8::FunctionTemplate::New(cameraCapture)->GetFunction());
-  proto->Set(v8::String::NewSymbol("toYUYV"),
-             v8::FunctionTemplate::New(cameraToYUYV)->GetFunction());
-  proto->Set(v8::String::NewSymbol("toRGB"),
-             v8::FunctionTemplate::New(cameraToRGB)->GetFunction());
-  proto->Set(v8::String::NewSymbol("controlGet"),
-             v8::FunctionTemplate::New(cameraControlGet)->GetFunction());
-  proto->Set(v8::String::NewSymbol("controlSet"),
-             v8::FunctionTemplate::New(cameraControlSet)->GetFunction());
-  auto ctor = v8::Local<v8::Function>::New(clazz->GetFunction());
-  exports->Set(v8::String::NewSymbol("Camera"), ctor);
-}
-
-NODE_MODULE(v4l2camera, moduleInit)
-
-}
+NODE_MODULE(v4l2camera, Camera::Init)
