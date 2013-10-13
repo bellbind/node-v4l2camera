@@ -55,7 +55,8 @@ Initializing API
 Capturing API
 
 - `cam.start()`
-- `cam.stop()`
+- `cam.stop(afterStoped())`
+    - call re-`config(format)` or re-`start()` in `afterStoped()` callback
 - `cam.capture(afterCaptured)`: Do cache a current captured frame
     - call `cam.toRGB()` in `afterCaptured(true)` callback
 - `cam.toYUYV()`: Get the cached frame as 8bit int Array of pixels YUYVYUYV...

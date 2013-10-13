@@ -11,6 +11,10 @@
 
 
 namespace {
+  struct CallbackData {
+    v8::Persistent<v8::Object> thisObj;
+    v8::Persistent<v8::Function> callback;
+  };
   
   class Camera : node::ObjectWrap {
   public:
@@ -28,7 +32,13 @@ namespace {
     
     static v8::Local<v8::Object> Controls(camera_t* camera);  
     static v8::Local<v8::Object> Formats(camera_t* camera);  
+    static void StopCB(uv_poll_t* handle, int status, int events);
     static void CaptureCB(uv_poll_t* handle, int status, int events);
+    
+    static void 
+    WatchCB(uv_poll_t* handle, void (*callbackCall)(CallbackData* data));
+    static v8::Handle<v8::Value> 
+    Watch(const v8::Arguments& args, uv_poll_cb cb);
     Camera();
     ~Camera();
     camera_t* camera;
@@ -67,7 +77,7 @@ namespace {
     return throwError(ctx->msg.c_str());
   }
   
-  // helper
+  //[helpers]
   static inline v8::Local<v8::Value> 
   getValue(v8::Local<v8::Object> self, const char* name) {
     return self->Get(v8::String::NewSymbol(name));
@@ -101,6 +111,36 @@ namespace {
   static inline void 
   setBool(v8::Local<v8::Object> self, const char* name, bool value) {
     setValue(self, name, v8::Boolean::New(value));
+  }
+
+  //[callback helpers]
+  void Camera::WatchCB(uv_poll_t* handle, 
+                       void (*callbackCall)(CallbackData* data)) {
+    v8::HandleScope scope;
+    auto data = static_cast<CallbackData*>(handle->data);
+    uv_poll_stop(handle);
+    uv_close(reinterpret_cast<uv_handle_t*>(handle), 
+             [](uv_handle_t* handle) -> void {delete handle;});
+    callbackCall(data);
+    data->thisObj.Dispose();
+    data->callback.Dispose();
+    delete data;
+  }
+  v8::Handle<v8::Value> 
+  Camera::Watch(const v8::Arguments& args, uv_poll_cb cb) {
+    v8::HandleScope scope;
+    auto data = new CallbackData;
+    auto thisObj = args.This();
+    data->thisObj = v8::Persistent<v8::Object>::New(thisObj);
+    data->callback = 
+      v8::Persistent<v8::Function>::New(args[0].As<v8::Function>());
+    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    
+    uv_poll_t* handle = new uv_poll_t;
+    handle->data = data;
+    uv_poll_init(uv_default_loop(), handle, camera->fd);
+    uv_poll_start(handle, UV_READABLE, cb);
+    return v8::Undefined();
   }
   
   //[methods]
@@ -184,7 +224,6 @@ namespace {
     return formats;
   }
   
-  //[initializer]
   Camera::Camera() : camera(nullptr) {}
   Camera::~Camera() {
     if (camera) {
@@ -193,6 +232,8 @@ namespace {
       delete ctx;
     }
   }
+  
+  //[members]
   v8::Handle<v8::Value> Camera::New(const v8::Arguments& args) {
     v8::HandleScope scope;
     if (args.Length() < 1) return throwTypeError("argument required: device");
@@ -245,50 +286,38 @@ namespace {
     return scope.Close(thisObj);
   }
   
+  
+  void Camera::StopCB(uv_poll_t* handle, int /*status*/, int /*events*/) {
+    auto callCallback = [](CallbackData* data) -> void {
+      v8::HandleScope scope;
+      auto thisObj = v8::Local<v8::Object>::New(data->thisObj);
+      data->callback->Call(thisObj, 0, nullptr);
+    };
+    WatchCB(handle, callCallback);
+  }
   v8::Handle<v8::Value> Camera::Stop(const v8::Arguments& args) {
     v8::HandleScope scope;
     auto thisObj = args.This();
     auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
     if (!camera_stop(camera)) return throwError(camera);
-    return scope.Close(thisObj);
+    return Watch(args, StopCB);
   }
   
-  struct CaptureData {
-    v8::Persistent<v8::Object> thisObj;
-    v8::Persistent<v8::Function> callback;
-  };
   void Camera::CaptureCB(uv_poll_t* handle, int /*status*/, int /*events*/) {
-    v8::HandleScope scope;
-    auto data = static_cast<CaptureData*>(handle->data);
-    uv_poll_stop(handle);
-    uv_close(reinterpret_cast<uv_handle_t*>(handle), 
-             [](uv_handle_t* handle) -> void {delete handle;});
-    
-    auto thisObj = v8::Local<v8::Object>::New(data->thisObj);
-    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
-    bool captured = camera_capture(camera);
-    v8::Local<v8::Value> argv[] = {
-      v8::Local<v8::Value>::New(v8::Boolean::New(captured)),
+    auto callCallback = [](CallbackData* data) -> void {
+      v8::HandleScope scope;
+      auto thisObj = v8::Local<v8::Object>::New(data->thisObj);
+      auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+      bool captured = camera_capture(camera);
+      v8::Local<v8::Value> argv[] = {
+        v8::Local<v8::Value>::New(v8::Boolean::New(captured)),
+      };
+      data->callback->Call(thisObj, 1, argv);
     };
-    data->callback->Call(thisObj, 1, argv);
-    data->thisObj.Dispose();
-    data->callback.Dispose();
-    delete data;
+    WatchCB(handle, callCallback);
   }
   v8::Handle<v8::Value> Camera::Capture(const v8::Arguments& args) {
-    v8::HandleScope scope;
-    auto data = new CaptureData;
-    auto thisObj = args.This();
-    data->thisObj = v8::Persistent<v8::Object>::New(thisObj);
-    data->callback = 
-      v8::Persistent<v8::Function>::New(args[0].As<v8::Function>());
-    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
-    
-    uv_poll_t* handle = new uv_poll_t;
-    handle->data = data;
-    uv_poll_init(uv_default_loop(), handle, camera->fd);
-    uv_poll_start(handle, UV_READABLE, Camera::CaptureCB);
-    return v8::Undefined();
+    return Watch(args, CaptureCB);
   }
   
   v8::Handle<v8::Value> Camera::ToYUYV(const v8::Arguments& args) {

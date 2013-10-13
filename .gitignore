@@ -4,6 +4,7 @@ node_modules/
 
 capture-jpeg
 list-controls
+list-formats
 *.o
-result.png
-result.jpg
+result*.png
+result*.jpg
