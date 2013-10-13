@@ -50,9 +50,9 @@ Initializing API
       : Capturing interval per `numerator/denominator` seconds 
       (e.g. 30fps is 1/30)
 - `cam.configSet(format)`
-  : Set capture `width`, `height` and interval per `numerator/denominator` sec
-- `cam.configGet()' : Get a format object of current config
-
+  : Set capture `width`, `height`, `interval` per `numerator/denominator` sec
+  if the members exist in the `format` object
+- `cam.configGet()` : Get a `format` object of current config
 
 Capturing API
 
