@@ -77,8 +77,8 @@ int main(int argc, char* argv[])
     fprintf(stderr, "[%s] %s\n", device, strerror(errno));
     return EXIT_FAILURE;
   }
-  camera_config_t config = {0, width, height, {0, 0}};
-  if (!camera_config(camera, &config)) goto error;
+  camera_format_t config = {0, width, height, {0, 0}};
+  if (!camera_config_set(camera, &config)) goto error;
   if (!camera_start(camera)) goto error;
   
   struct timeval timeout;

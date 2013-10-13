@@ -22,11 +22,21 @@ int main(int argc, char* argv[])
     return EXIT_FAILURE;
   }
   
+  char name[5];
+  camera_format_t format;
+  camera_config_get(camera, &format);
+  camera_format_name(format.format, name);
+  puts("[current config]");
+  printf("- [%s] w: %d, h: %d, fps: %d/%d\n",
+         name, format.width, format.height,
+         format.interval.denominator,
+         format.interval.numerator);
+  
+  puts("[available formats]");
   camera_formats_t* formats = camera_formats_new(camera);
   for (size_t i = 0; i < formats->length; i++) {
-    char name[5];
     camera_format_name(formats->head[i].format, name);
-    printf("[%s] w: %d, h: %d, fps: %d/%d\n",
+    printf("- [%s] w: %d, h: %d, fps: %d/%d\n",
            name, formats->head[i].width, formats->head[i].height,
            formats->head[i].interval.denominator,
            formats->head[i].interval.numerator);
