@@ -26,7 +26,7 @@ var writePng = function (cam, filename) {
 
 var cam = new v4l2camera.Camera("/dev/video0")
 console.log("config");
-cam.config({width: 352, height: 288});
+cam.configSet({width: 352, height: 288});
 console.log("start");
 cam.start();
 times(6, cam.capture.bind(cam), function () {
@@ -34,7 +34,7 @@ times(6, cam.capture.bind(cam), function () {
     console.log("stop");
     cam.stop(function () {
         console.log("reconfig");
-        cam.config({width: 160, height: 120});
+        cam.configSet({width: 160, height: 120});
         console.log("restart");
         cam.start();
         times(6, cam.capture.bind(cam), function w() {

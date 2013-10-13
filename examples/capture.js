@@ -14,7 +14,7 @@ var times = function (n, async, cont) {
 };
 
 var cam = new v4l2camera.Camera("/dev/video0");
-cam.config({width: 352, height: 288});
+cam.configSet({width: 352, height: 288});
 cam.start();
 times(6, cam.capture.bind(cam), function () {
     var rgb = cam.toRGB();

@@ -21,12 +21,13 @@ namespace {
     static void Init(v8::Handle<v8::Object> exports);
   private:
     static v8::Handle<v8::Value> New(const v8::Arguments& args);
-    static v8::Handle<v8::Value> Config(const v8::Arguments& args);
     static v8::Handle<v8::Value> Start(const v8::Arguments& args);
     static v8::Handle<v8::Value> Stop(const v8::Arguments& args);
     static v8::Handle<v8::Value> Capture(const v8::Arguments& args);
     static v8::Handle<v8::Value> ToYUYV(const v8::Arguments& args);
     static v8::Handle<v8::Value> ToRGB(const v8::Arguments& args);
+    static v8::Handle<v8::Value> ConfigGet(const v8::Arguments& args);
+    static v8::Handle<v8::Value> ConfigSet(const v8::Arguments& args);
     static v8::Handle<v8::Value> ControlGet(const v8::Arguments& args);
     static v8::Handle<v8::Value> ControlSet(const v8::Arguments& args);
     
@@ -203,23 +204,27 @@ namespace {
     return controls;
   }
   
+  static v8::Local<v8::Object> convertFormat(camera_format_t* cformat) {
+    char name[5];
+    camera_format_name(cformat->format, name);
+    auto format = v8::Object::New();
+    setString(format, "formatName", name);
+    setUint(format, "format", cformat->format);
+    setUint(format, "width", cformat->width);
+    setUint(format, "height", cformat->height);
+    auto interval = v8::Object::New();
+    setValue(format, "interval", interval);
+    setUint(interval, "numerator", cformat->interval.numerator);
+    setUint(interval, "denominator", cformat->interval.denominator);
+    return format;
+  }
   v8::Local<v8::Object> Camera::Formats(camera_t* camera) {
     auto cformats = camera_formats_new(camera);
     auto formats = v8::Array::New(cformats->length);
     for (size_t i = 0; i < cformats->length; i++) {
       auto cformat = &cformats->head[i];
-      char name[5];
-      camera_format_name(cformat->format, name);
-      auto format = v8::Object::New();
+      auto format = convertFormat(cformat);
       formats->Set(i, format);
-      setString(format, "formatName", name);
-      setUint(format, "format", cformat->format);
-      setUint(format, "width", cformat->width);
-      setUint(format, "height", cformat->height);
-      auto interval = v8::Object::New();
-      setValue(format, "interval", interval);
-      setUint(interval, "numerator", cformat->interval.numerator);
-      setUint(interval, "denominator", cformat->interval.denominator);
     }
     return formats;
   }
@@ -252,30 +257,7 @@ namespace {
     setValue(thisObj, "controls", Controls(camera));
     return scope.Close(thisObj);
   }
-  
-  v8::Handle<v8::Value> Camera::Config(const v8::Arguments& args) {
-    v8::HandleScope scope;
-    if (args.Length() < 1) throwTypeError("argument required: config");
-    auto config = args[0]->ToObject();
-    uint32_t width = getUint(config, "width");
-    uint32_t height = getUint(config, "height");
-    uint32_t numerator = 0;
-    uint32_t denominator = 0;
-    auto pinterval = getValue(config, "interval");
-    if (pinterval->IsObject()) {
-      auto interval = pinterval->ToObject();
-      numerator = getUint(interval, "numerator");
-      denominator = getUint(interval, "denominator");
-    }
-    camera_config_t cconfig = {0, width, height, {numerator, denominator}};
-    auto thisObj = args.This();
-    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
-    if (!camera_config(camera, &cconfig)) return throwError(camera);
-    setUint(thisObj, "width", camera->width);
-    setUint(thisObj, "height", camera->height);
-    return scope.Close(thisObj);
-  }
-  
+
   v8::Handle<v8::Value> Camera::Start(const v8::Arguments& args) {
     v8::HandleScope scope;
     auto thisObj = args.This();
@@ -345,6 +327,39 @@ namespace {
     free(rgb);
     return scope.Close(ret);
   }
+
+  v8::Handle<v8::Value> Camera::ConfigGet(const v8::Arguments& args) {
+    v8::HandleScope scope;
+    auto thisObj = args.This();
+    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    camera_format_t cformat;
+    if (!camera_config_get(camera, &cformat)) return throwError(camera);
+    auto format = convertFormat(&cformat);
+    return scope.Close(format);
+  }
+  
+  v8::Handle<v8::Value> Camera::ConfigSet(const v8::Arguments& args) {
+    v8::HandleScope scope;
+    if (args.Length() < 1) throwTypeError("argument required: config");
+    auto format = args[0]->ToObject();
+    uint32_t width = getUint(format, "width");
+    uint32_t height = getUint(format, "height");
+    uint32_t numerator = 0;
+    uint32_t denominator = 0;
+    auto finterval = getValue(format, "interval");
+    if (finterval->IsObject()) {
+      auto interval = finterval->ToObject();
+      numerator = getUint(interval, "numerator");
+      denominator = getUint(interval, "denominator");
+    }
+    camera_format_t cformat = {0, width, height, {numerator, denominator}};
+    auto thisObj = args.This();
+    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    if (!camera_config_set(camera, &cformat)) return throwError(camera);
+    setUint(thisObj, "width", camera->width);
+    setUint(thisObj, "height", camera->height);
+    return scope.Close(thisObj);
+  }
   
   v8::Handle<v8::Value> Camera::ControlGet(const v8::Arguments& args) {
     v8::HandleScope scope;
@@ -386,12 +401,13 @@ namespace {
     clazz->SetClassName(name);
     clazz->InstanceTemplate()->SetInternalFieldCount(1);
     auto proto = clazz->PrototypeTemplate();
-    setMethod(proto, "config", Config);
     setMethod(proto, "start", Start);
     setMethod(proto, "stop", Stop);
     setMethod(proto, "capture", Capture);
     setMethod(proto, "toYUYV", ToYUYV);
     setMethod(proto, "toRGB", ToRGB);
+    setMethod(proto, "configGet", ConfigGet);
+    setMethod(proto, "configSet", ConfigSet);
     setMethod(proto, "controlGet", ControlGet);
     setMethod(proto, "controlSet", ControlSet);
     auto ctor = v8::Local<v8::Function>::New(clazz->GetFunction());
