@@ -79,38 +79,40 @@ namespace {
   }
   
   //[helpers]
-  static inline v8::Local<v8::Value> 
-  getValue(v8::Local<v8::Object> self, const char* name) {
+  static inline v8::Local<v8::Value>
+  getValue(const v8::Local<v8::Object>& self, const char* name) {
     return self->Get(v8::String::NewSymbol(name));
   }
   static inline int32_t
-  getInt(v8::Local<v8::Object> self, const char* name) {
+  getInt(const v8::Local<v8::Object>& self, const char* name) {
     return getValue(self, name)->Int32Value();
   }
   static inline uint32_t
-  getUint(v8::Local<v8::Object> self, const char* name) {
+  getUint(const v8::Local<v8::Object>& self, const char* name) {
     return getValue(self, name)->Uint32Value();
   }
   
   static inline void 
-  setValue(v8::Local<v8::Object> self, const char* name, 
-           v8::Handle<v8::Value> value) {
+  setValue(const v8::Local<v8::Object>& self, const char* name, 
+           const v8::Handle<v8::Value>& value) {
     self->Set(v8::String::NewSymbol(name), value);
   }
   static inline void 
-  setInt(v8::Local<v8::Object> self, const char* name, int32_t value) {
+  setInt(const v8::Local<v8::Object>& self, const char* name, int32_t value) {
     setValue(self, name, v8::Integer::New(value));
   }
   static inline void 
-  setUint(v8::Local<v8::Object> self, const char* name, uint32_t value) {
+  setUint(const v8::Local<v8::Object>& self, const char* name, 
+          uint32_t value) {
     setValue(self, name, v8::Integer::NewFromUnsigned(value));
   }
   static inline void 
-  setString(v8::Local<v8::Object> self, const char* name, const char* value) {
+  setString(const v8::Local<v8::Object>& self, const char* name, 
+            const char* value) {
     setValue(self, name, v8::String::New(value));
   }
   static inline void 
-  setBool(v8::Local<v8::Object> self, const char* name, bool value) {
+  setBool(const v8::Local<v8::Object>& self, const char* name, bool value) {
     setValue(self, name, v8::Boolean::New(value));
   }
 
@@ -389,7 +391,7 @@ namespace {
   
   //[module init]
   static inline void 
-  setMethod(v8::Local<v8::ObjectTemplate> proto, const char* name, 
+  setMethod(const v8::Local<v8::ObjectTemplate>& proto, const char* name, 
             v8::Handle<v8::Value> (*func)(const v8::Arguments& args)) {
     auto funcValue = v8::FunctionTemplate::New(func)->GetFunction();
     proto->Set(v8::String::NewSymbol(name), funcValue);
