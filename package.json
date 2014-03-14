@@ -14,5 +14,6 @@
                 "url": "http://github.com/bellbind/node-v4l2camera.git"},
  "devDependencies": {"png": "*", "pngjs": "*"},
  "engines": {"node": ">=0.10.0"},
+ "scripts": {"test": "node test.js"},
  "os": ["linux"]
 }
