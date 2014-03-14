@@ -193,12 +193,14 @@ namespace {
           menu->Set(j, v8::String::New(value));
         }
         break;
+#ifndef CAMERA_OLD_VIDEODEV2_H
       case CAMERA_CTRL_INTEGER_MENU:
         for (size_t j = 0; j < ccontrol->menus.length; j++) {
           auto value = static_cast<int32_t>(ccontrol->menus.head[j].value);
           menu->Set(j, v8::Integer::New(value));
         }
         break;
+#endif
       default: break;
       }
     }

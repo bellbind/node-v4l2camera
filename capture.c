@@ -443,11 +443,13 @@ camera_menu_copy(camera_menu_t* menu, struct v4l2_querymenu* qmenu)
 {
   memcpy(menu->name, qmenu->name, sizeof qmenu->name);
 }
+#ifndef CAMERA_OLD_VIDEODEV2_H
 static void 
 camera_integer_menu_copy(camera_menu_t* menu, struct v4l2_querymenu* qmenu)
 {
   menu->value = qmenu->value;
 }
+#endif
 static void 
 camera_controls_menus(camera_t* camera, camera_control_t* control)
 {
@@ -455,9 +457,11 @@ camera_controls_menus(camera_t* camera, camera_control_t* control)
   switch (control->type) {
   case CAMERA_CTRL_MENU:
     break;
+#ifndef CAMERA_OLD_VIDEODEV2_H
   case CAMERA_CTRL_INTEGER_MENU:
     copy = &camera_integer_menu_copy;
     break;
+#endif
   default:
     control->menus.length = 0;
     control->menus.head = NULL;
