@@ -1,3 +1,8 @@
 language: node_js
 node_js:
-  - 0.10
+  - "0.10"
+compiler: gcc-4.8
+install:
+  - sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
+  - sudo apt-get -qq update
+  - sudo apt-get -qq install g++-4.8
