@@ -1,5 +1,6 @@
 #include "capture.h"
 #include <node.h>
+#include <node_buffer.h>
 #include <v8.h>
 #include <uv.h>
 
@@ -24,7 +25,7 @@ namespace {
     static v8::Handle<v8::Value> Start(const v8::Arguments& args);
     static v8::Handle<v8::Value> Stop(const v8::Arguments& args);
     static v8::Handle<v8::Value> Capture(const v8::Arguments& args);
-    static v8::Handle<v8::Value> ToYUYV(const v8::Arguments& args);
+    static v8::Handle<v8::Value> GetFrameData(const v8::Arguments& args);
     static v8::Handle<v8::Value> ToRGB(const v8::Arguments& args);
     static v8::Handle<v8::Value> ConfigGet(const v8::Arguments& args);
     static v8::Handle<v8::Value> ConfigSet(const v8::Arguments& args);
@@ -305,17 +306,29 @@ namespace {
   v8::Handle<v8::Value> Camera::Capture(const v8::Arguments& args) {
     return Watch(args, CaptureCB);
   }
+
+  // Copies data into a C++ SlowBuffer and wraps it in a JavaScript Buffer
+  static v8::Local<v8::Object> makeBuffer(const uint8_t* data, int length) {
+    // Data is copied into the buffer.
+    node::Buffer* slowBuffer = node::Buffer::New(
+      reinterpret_cast<const char*>(data), length);
+    // Wrap the SlowBuffer in a Buffer
+    v8::Local<v8::Object> globalObj = v8::Context::GetCurrent()->Global();
+    v8::Local<v8::Function> bufferConstructor =
+      v8::Local<v8::Function>::Cast(globalObj->Get(v8::String::New("Buffer")));
+    v8::Handle<v8::Value> constructorArgs[3] = {
+      slowBuffer->handle_, v8::Integer::New(length), v8::Integer::New(0) };
+    v8::Local<v8::Object> actualBuffer =
+      bufferConstructor->NewInstance(3, constructorArgs);
+    return actualBuffer;
+  }
   
-  v8::Handle<v8::Value> Camera::ToYUYV(const v8::Arguments& args) {
+  v8::Handle<v8::Value> Camera::GetFrameData(const v8::Arguments& args) {
     v8::HandleScope scope;
     auto thisObj = args.This();
     auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
-    int size = camera->width * camera->height * 2;
-    auto ret  = v8::Array::New(size);
-    for (int i = 0; i < size; i++) {
-      ret->Set(i, v8::Integer::NewFromUnsigned(camera->head.start[i]));
-    }
-    return scope.Close(ret);
+    int length = camera->head.length;
+    return scope.Close(makeBuffer(camera->head.start, length));
   }
   
   v8::Handle<v8::Value> Camera::ToRGB(const v8::Arguments& args) {
@@ -323,13 +336,10 @@ namespace {
     auto thisObj = args.This();
     auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
     auto rgb = yuyv2rgb(camera->head.start, camera->width, camera->height);
-    int size = camera->width * camera->height * 3;
-    auto ret  = v8::Array::New(size);
-    for (int i = 0; i < size; i++) {
-      ret->Set(i, v8::Integer::NewFromUnsigned(rgb[i]));
-    }
+    int length = camera->width * camera->height * 3;
+    auto buffer = makeBuffer(rgb, length);
     free(rgb);
-    return scope.Close(ret);
+    return scope.Close(buffer);
   }
 
   v8::Handle<v8::Value> Camera::ConfigGet(const v8::Arguments& args) {
@@ -408,7 +418,8 @@ namespace {
     setMethod(proto, "start", Start);
     setMethod(proto, "stop", Stop);
     setMethod(proto, "capture", Capture);
-    setMethod(proto, "toYUYV", ToYUYV);
+    setMethod(proto, "getFrameData", GetFrameData);
+    setMethod(proto, "toYUYV", GetFrameData);
     setMethod(proto, "toRGB", ToRGB);
     setMethod(proto, "configGet", ConfigGet);
     setMethod(proto, "configSet", ConfigSet);
