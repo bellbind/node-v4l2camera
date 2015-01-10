@@ -1,5 +1,6 @@
 #include "capture.h"
 #include <node.h>
+#include <node_buffer.h>
 #include <v8.h>
 #include <uv.h>
 
@@ -26,6 +27,7 @@ namespace {
     static v8::Handle<v8::Value> Capture(const v8::Arguments& args);
     static v8::Handle<v8::Value> ToYUYV(const v8::Arguments& args);
     static v8::Handle<v8::Value> ToRGB(const v8::Arguments& args);
+    static v8::Handle<v8::Value> ToRGBBuffer(const v8::Arguments& args);
     static v8::Handle<v8::Value> ConfigGet(const v8::Arguments& args);
     static v8::Handle<v8::Value> ConfigSet(const v8::Arguments& args);
     static v8::Handle<v8::Value> ControlGet(const v8::Arguments& args);
@@ -331,6 +333,25 @@ namespace {
     free(rgb);
     return scope.Close(ret);
   }
+  
+  v8::Handle<v8::Value> Camera::ToRGBBuffer(const v8::Arguments& args) {
+    v8::HandleScope scope;
+    auto thisObj = args.This();
+    auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    auto rgb = yuyv2rgb(camera->head.start, camera->width, camera->height);
+    int size = camera->width * camera->height * 3;
+    
+    node::Buffer *slowBuffer = node::Buffer::New(size);
+    memcpy(node::Buffer::Data(slowBuffer), rgb, size);
+    free(rgb);
+
+    v8::Local<v8::Object> globalObj = v8::Context::GetCurrent()->Global();
+    v8::Local<v8::Function> bufferConstructor = v8::Local<v8::Function>::Cast(globalObj->Get(v8::String::New("Buffer")));
+    v8::Handle<v8::Value> constructorArgs[3] = { slowBuffer->handle_, v8::Integer::New(size), v8::Integer::New(0) };
+    v8::Local<v8::Object> actualBuffer = bufferConstructor->NewInstance(3, constructorArgs);
+    
+    return scope.Close(actualBuffer);
+  }
 
   v8::Handle<v8::Value> Camera::ConfigGet(const v8::Arguments& args) {
     v8::HandleScope scope;
@@ -410,6 +431,7 @@ namespace {
     setMethod(proto, "capture", Capture);
     setMethod(proto, "toYUYV", ToYUYV);
     setMethod(proto, "toRGB", ToRGB);
+    setMethod(proto, "toRGBBuffer", ToRGBBuffer);
     setMethod(proto, "configGet", ConfigGet);
     setMethod(proto, "configSet", ConfigSet);
     setMethod(proto, "controlGet", ControlGet);
