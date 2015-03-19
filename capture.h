@@ -9,7 +9,6 @@
 #  define CAMERA_OLD_VIDEODEV2_H
 #endif
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
