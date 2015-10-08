@@ -2,6 +2,7 @@
 
 #include <nan.h>
 #include <node.h>
+#include <node_buffer.h>
 #include <v8.h>
 #include <uv.h>
 
@@ -39,6 +40,7 @@ class Camera : public node::ObjectWrap {
     static NAN_METHOD(Capture);
     static NAN_METHOD(ToYUYV);
     static NAN_METHOD(ToRGB);
+    static NAN_METHOD(ToRGBBuffer);
     static NAN_METHOD(ConfigGet);
     static NAN_METHOD(ConfigSet);
     static NAN_METHOD(ControlGet);
@@ -334,6 +336,25 @@ NAN_METHOD(Camera::ToRGB) {
   NanReturnValue(ret);
 }
 
+NAN_METHOD(Camera::ToRGBBuffer) {
+  NaneScope();
+  auto thisObj = args.This();
+  auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+  auto rgb = yuyv2rgb(camera->head.start, camera->width, camera->height);
+  int size = camera->width * camera->height * 3;
+    
+  node::Buffer *slowBuffer = node::Buffer::New(size);
+  memcpy(node::Buffer::Data(slowBuffer), rgb, size);
+  free(rgb);
+  
+  auto globalObj = v8::Context::GetCurrent()->Global();
+  auto bufferConstructor = v8::Local<v8::Function>::Cast(globalObj->Get(v8::String::New("Buffer")));
+  v8::Handle<v8::Value> constructorArgs[3] = { slowBuffer->handle_, v8::Integer::New(size), v8::Integer::New(0) };
+  auto actualBuffer = bufferConstructor->NewInstance(3, constructorArgs);
+  
+  NanReturnValue((actualBuffer);
+}
+
 NAN_METHOD(Camera::ConfigGet) {
   NanScope();
   auto thisObj = args.This();
@@ -405,6 +426,8 @@ NAN_METHOD(Camera::ControlSet) {
   NanReturnValue(thisObj);
 }
 
+
+
 Camera::Camera() : camera(nullptr) {}
 Camera::~Camera() {
   if (camera) {
@@ -435,6 +458,7 @@ void Camera::Init(Handle<Object> exports) {
   setMethod(proto, "capture", Capture);
   setMethod(proto, "toYUYV", ToYUYV);
   setMethod(proto, "toRGB", ToRGB);
+  setMethod(proto, "toRGBBuffer", ToRGBBuffer);
   setMethod(proto, "configGet", ConfigGet);
   setMethod(proto, "configSet", ConfigSet);
   setMethod(proto, "controlGet", ControlGet);
