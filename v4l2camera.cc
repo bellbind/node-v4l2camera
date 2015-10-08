@@ -41,6 +41,7 @@ class Camera : public node::ObjectWrap {
     static NAN_METHOD(ToYUYV);
     static NAN_METHOD(ToRGB);
     static NAN_METHOD(ToRGBBuffer);
+    static NAN_METHOD(GetFrameData);
     static NAN_METHOD(ConfigGet);
     static NAN_METHOD(ConfigSet);
     static NAN_METHOD(ControlGet);
@@ -305,6 +306,30 @@ void Camera::CaptureCB(uv_poll_t* handle, int /*status*/, int /*events*/) {
   WatchCB(handle, callCallback);
 }
 
+// Copies data into a C++ SlowBuffer and wraps it in a JavaScript Buffer
+static v8::Local<v8::Object> makeBuffer(const uint8_t* data, int length) {
+  // Data is copied into the buffer.
+  auto slowBuffer = NanBufferUse(reinterpret_cast<const char*>(data), length);
+  // Wrap the SlowBuffer in a Buffer
+  auto gobalObj = v8::Context::GetCurrent()->Global();
+  auto bufferConstructor =
+    v8::Local<v8::Function>::Cast(globalObj->Get(v8::String::New("Buffer")));
+  v8::Handle<v8::Value> constructorArgs[3] = {
+    slowBuffer->handle_, v8::Integer::New(length), v8::Integer::New(0) };
+  auto actualBuffer =
+    bufferConstructor->NewInstance(3, constructorArgs);
+  return actualBuffer;
+}
+
+NAN_METHOD(Camera::GetFrameData) {
+  NanScope();
+  auto thisObj = args.This();
+  auto camera = node::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+  auto length = camera->head.length;
+  NanReturnValue(makeBuffer(camera->head.start, length));
+}
+
+
 NAN_METHOD(Camera::Capture) {
   Watch(args.This(), new NanCallback(args[0].As<Function>()), CaptureCB);
   NanReturnUndefined();
@@ -343,7 +368,7 @@ NAN_METHOD(Camera::ToRGBBuffer) {
   auto rgb = yuyv2rgb(camera->head.start, camera->width, camera->height);
   int size = camera->width * camera->height * 3;
     
-  node::Buffer *slowBuffer = node::Buffer::New(size);
+  node::Buffer *slowBuffer = NanBufferUse(size);
   memcpy(node::Buffer::Data(slowBuffer), rgb, size);
   free(rgb);
   
