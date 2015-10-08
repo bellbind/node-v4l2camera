@@ -1,6 +1,6 @@
 {
   "name": "v4l2camera",
-  "version": "0.4.3",
+  "version": "1.0.0",
   "description": "Capturing images from USB(UVC) webcam on linux machines",
   "keywords": [
     "linux",
@@ -33,11 +33,10 @@
     "url": "http://github.com/bellbind/node-v4l2camera.git"
   },
   "devDependencies": {
-    "png": "*",
     "pngjs": "*"
   },
   "engines": {
-    "node": ">=0.10.0"
+    "node": ">=4.0.0"
   },
   "scripts": {
     "test": "node test.js"
@@ -46,6 +45,6 @@
     "linux"
   ],
   "dependencies": {
-    "nan": "^1.7.0"
+    "nan": ">=2.0.0"
   }
 }
