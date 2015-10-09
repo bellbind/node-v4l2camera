@@ -9,7 +9,9 @@ addons:
     packages:
     - gcc-5
     - g++-5
-script:
-  - uname -a
 install:
   - CC=gcc-5 CXX=g++-5 npm install
+  - make -f c-example.make
+script:
+  - uname -a
+  
