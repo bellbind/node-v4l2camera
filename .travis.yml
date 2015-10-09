@@ -1,9 +1,15 @@
+sudo: false
 language: node_js
 node_js:
-  - "0.10"
-compiler: gcc-4.8
+  - "stable"
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - gcc-5
+    - g++5
+script:
+  - uname -a
 install:
-  - sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
-  - sudo apt-get -qq update
-  - sudo apt-get -qq install g++-4.8
-  - CC=gcc-4.8 CXX=g++-4.8 npm install
+  - CC=gcc-5 CXX=g++-5 npm install
