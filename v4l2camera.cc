@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+
 namespace {
   
   struct CallbackData {
@@ -35,11 +36,11 @@ namespace {
     static void StopCB(uv_poll_t* handle, int status, int events);
     static void CaptureCB(uv_poll_t* handle, int status, int events);
     
-    static void WatchCB(uv_poll_t* handle,
-                        void (*callbackCall)(CallbackData* data));
+    static void
+    WatchCB(uv_poll_t* handle, void (*callbackCall)(CallbackData* data));
+    static void
+    Watch(const Nan::FunctionCallbackInfo<v8::Value>& info, uv_poll_cb cb);
     
-    static void Watch(const Nan::FunctionCallbackInfo<v8::Value>& info ,
-                      uv_poll_cb cb);
     Camera();
     ~Camera();
     camera_t* camera;
@@ -235,10 +236,10 @@ namespace {
       std::vector<v8::Local<v8::Value>> args(info.Length());
       for (std::size_t i = 0; i < args.size(); ++i) args[i] = info[i];
       auto inst = Nan::NewInstance(info.Callee(), args.size(), args.data());
-      info.GetReturnValue().Set(inst.ToLocalChecked());
+      if (!inst.IsEmpty()) info.GetReturnValue().Set(inst.ToLocalChecked());
       return;
     }
-    
+
     if (info.Length() < 1) {
       Nan::ThrowTypeError("argument required: device");
       return;
