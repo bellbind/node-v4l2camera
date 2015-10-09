@@ -1,8 +1,7 @@
-
+// Capture MJPG camera frame to store as jpg file
 var v4l2camera = require("../");
 
 var fs = require("fs");
-var png = require("png");
 
 var times = function (n, async, cont) {
     for (var i = 0; i < n; i++) {
@@ -13,15 +12,17 @@ var times = function (n, async, cont) {
     return cont();
 };
 
-var cam = new v4l2camera.Camera("/dev/video0")
-cam.configSet({width: 352, height: 288});
+var cam = new v4l2camera.Camera("/dev/video0");
+if (cam.configGet().formatName !== "MJPG") {
+    console.log("MJPG camera required");
+    process.exit(1);
+}
+
 cam.start();
 times(6, cam.capture.bind(cam), function () {
-    var rgb = cam.toRGB();
-    var img = new png.Png(Buffer(rgb), cam.width, cam.height, "rgb");
-    img.encode(function (buf) {
-        fs.writeFileSync("result.png", buf);
-    });
+    var raw = cam.frameRaw();
+    var img = fs.createWriteStream("result.jpg");
+    img.write(Buffer(raw));
     cam.stop();
 });
 console.log("w: " + cam.width + " h: " + cam.height);

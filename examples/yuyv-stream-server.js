@@ -99,6 +99,10 @@ var script = function () {
 };
 
 var cam = new v4l2camera.Camera("/dev/video0")
+if (cam.configGet().formatName !== "YUYV") {
+    console.log("YUYV camera required");
+    process.exit(1);
+}
 cam.configSet({width: 352, height: 288});
 cam.start();
 cam.capture(function loop() {

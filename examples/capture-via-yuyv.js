@@ -2,7 +2,7 @@
 var v4l2camera = require("../");
 
 var fs = require("fs");
-var png = require("png");
+var pngjs = require("pngjs");
 
 var times = function (n, async, cont) {
     for (var i = 0; i < n; i++) {
@@ -46,15 +46,27 @@ var yuyv2rgb = function (yuyv, width, height) {
 };
 
 var cam = new v4l2camera.Camera("/dev/video0")
-cam.configSet({width: 352, height: 288});
+if (cam.configGet().formatName !== "YUYV") {
+    console.log("YUYV camera required");
+    process.exit(1);
+}
+//cam.configSet({width: 352, height: 288});
 cam.start();
 times(6, cam.capture.bind(cam), function () {
     var yuyv = cam.toYUYV();
     var rgb = yuyv2rgb(yuyv, cam.width, cam.height);;
-    var img = new png.Png(Buffer(rgb), cam.width, cam.height, "rgb");
-    img.encode(function (buf) {
-        fs.writeFileSync("result.png", buf);
+    var png = new pngjs.PNG({
+	width: cam.width, height: cam.height,
+	deflateLevel: 1, deflateStrategy: 1,
     });
+    var size = cam.width * cam.height;
+    for (var i = 0; i < size; i++) {
+	png.data[i * 4 + 0] = rgb[i * 3 + 0];
+	png.data[i * 4 + 1] = rgb[i * 3 + 1];
+	png.data[i * 4 + 2] = rgb[i * 3 + 2];
+	png.data[i * 4 + 3] = 255;
+    }
+    png.pack().pipe(fs.createWriteStream("result.png"));
     cam.stop();
 });
 console.log("w: " + cam.width + " h: " + cam.height);
