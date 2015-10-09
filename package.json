@@ -30,7 +30,8 @@
 	"node": ">=4.0.0"
     },
     "scripts": {
-	"test": "node test.js"
+	"test": "node test.js",
+        "make-c-examples": "make -f c-examples.makefile"
     },
     "os": [
 	"linux"

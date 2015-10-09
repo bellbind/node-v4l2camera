@@ -11,7 +11,7 @@ addons:
     - g++-5
 install:
   - CC=gcc-5 CXX=g++-5 npm install
-  - make -f c-examples.make
+  - npm run-script make-c-examples
 script:
   - uname -a
   
