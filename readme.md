@@ -4,10 +4,10 @@ Capturing images from USB(UVC) webcam on linux machines.
 
 ## Requirements
 
-- node >= 0.10.x
+- node >= 4.x
 - video4linux2 headers
-- c and c++ compiler with `-std=c11` and `-std=c++11`
-    - gcc >= 4.7
+- c and c++ compiler with `-std=c11` and `-std=c++14`
+    - gcc >= 4.9
 
 ## Install
 
@@ -25,15 +25,19 @@ npm install v4l2camera
 var v4l2camera = require("v4l2camera");
 
 var cam = new v4l2camera.Camera("/dev/video0");
+if (cam.configGet().formatName !== "MJPG") {
+  console.log("NOTICE: MJPG camera required");
+  process.exit(1);
+}
 cam.start();
 cam.capture(function (success) {
-  var rgb = cam.toRGB();
-  require("fs").writeFileSync("result.raw", Buffer(rgb));
+  var frame = cam.frameRaw();
+  require("fs").writeFileSync("result.jpg", Buffer(frame));
   cam.stop();
 });
 ```
 
-For more detail see: examples/*.js (required "pngjs" or native "png" modules)
+For more detail see: examples/*.js (required "pngjs" modules)
 
 ## API
 
@@ -42,7 +46,7 @@ Initializing API
 - `var cam = new v4l2camera.Camera(device)`
 - `cam.formats`: Array of available frame formats
 - `var format = cam.formats[n]`
-    - `format.formatName`: Name of pixel format. e.g. `"YUYV"`
+    - `format.formatName`: Name of pixel format. e.g. `"YUYV"`, `"MJPG"`
     - `format.format`: ID number of pixel format
     - `format.width`: Frame width
     - `format.height`: Frame height
@@ -61,8 +65,12 @@ Capturing API
     - call re-`config(format)` or re-`start()` in `afterStoped()` callback
 - `cam.capture(afterCaptured)`: Do cache a current captured frame
     - call `cam.toRGB()` in `afterCaptured(true)` callback
+- `cam.frameRaw()`: Get the cached raw frame as Uint8Array
+   (YUYU frame is array of YUYV..., MJPG frame is single JPEG compressed data)
 - `cam.toYUYV()`: Get the cached frame as 8bit int Array of pixels YUYVYUYV...
+   (will be deprecated method)
 - `cam.toRGB()`: Get the cached frame as 8bit int Array of pixels RGBRGB...
+   (will be deprecated method)
 - `cam.device`
 - `cam.width`
 - `cam.height`
@@ -102,8 +110,8 @@ cd ../..
 
 ## Tested Environments
 
-- Ubuntu raring armhf on BeagleBone Black with USB Buffalo BSW13K10H
-- Ubuntu raring amd64 on Acer Aspire One with its screen facecam
+- Ubuntu wily armhf on BeagleBone Black with USB Buffalo BSW13K10H
+- Ubuntu wily amd64 on Acer Aspire One with its screen facecam
 
 ## Licenses
 
