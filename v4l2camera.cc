@@ -31,8 +31,6 @@ namespace {
     static NAN_METHOD(ControlGet);
     static NAN_METHOD(ControlSet);
     
-    static v8::Local<v8::Object> Controls(camera_t* camera);  
-    static v8::Local<v8::Object> Formats(camera_t* camera);  
     static void StopCB(uv_poll_t* handle, int status, int events);
     static void CaptureCB(uv_poll_t* handle, int status, int events);
     
@@ -66,8 +64,8 @@ namespace {
     static_cast<LogContext*>(pointer)->msg = ss.str();
   }
   
-  static inline v8::Local<v8::Value> cameraError(camera_t* camera) {
-    auto ctx = static_cast<LogContext*>(camera->context.pointer);
+  static inline v8::Local<v8::Value> cameraError(const camera_t* camera) {
+    const auto ctx = static_cast<LogContext*>(camera->context.pointer);
     return Nan::Error(ctx->msg.c_str());
   }
   
@@ -77,13 +75,13 @@ namespace {
   getValue(const v8::Local<v8::Object>& self, const char* name) {
     return Nan::Get(self, Nan::New(name).ToLocalChecked()).ToLocalChecked();
   }
-  static inline int32_t
+  static inline std::int32_t
   getInt(const v8::Local<v8::Object>& self, const char* name) {
-    return Nan::To<int32_t>(getValue(self, name)).FromJust();
+    return Nan::To<std::int32_t>(getValue(self, name)).FromJust();
   }
-  static inline uint32_t
+  static inline std::uint32_t
   getUint(const v8::Local<v8::Object>& self, const char* name) {
-    return Nan::To<uint32_t>(getValue(self, name)).FromJust();
+    return Nan::To<std::uint32_t>(getValue(self, name)).FromJust();
   }
   
   static inline void 
@@ -92,12 +90,13 @@ namespace {
     Nan::Set(self, Nan::New(name).ToLocalChecked(), value);
   }
   static inline void 
-  setInt(const v8::Local<v8::Object>& self, const char* name, int32_t value) {
+  setInt(const v8::Local<v8::Object>& self, const char* name,
+         std::int32_t value) {
     setValue(self, name, Nan::New(value));
   }
   static inline void 
   setUint(const v8::Local<v8::Object>& self, const char* name, 
-          uint32_t value) {
+          std::uint32_t value) {
     setValue(self, name, Nan::New(value));
   }
   static inline void 
@@ -111,7 +110,7 @@ namespace {
   }
   
   //[callback helpers]
-  void Camera::WatchCB(uv_poll_t* handle, 
+  void Camera::WatchCB(uv_poll_t* handle,
                        void (*callbackCall)(CallbackData* data)) {
     Nan::HandleScope scope;
     auto data = static_cast<CallbackData*>(handle->data);
@@ -123,7 +122,6 @@ namespace {
     data->thisObj.Reset();
     delete data;
   }
-  
   void Camera::Watch(const Nan::FunctionCallbackInfo<v8::Value>& info,
                      uv_poll_cb cb) {
     auto data = new CallbackData;
@@ -131,7 +129,7 @@ namespace {
     data->callback.reset(new Nan::Callback(info[0].As<v8::Function>()));
     auto camera = Nan::ObjectWrap::Unwrap<Camera>(info.Holder())->camera;
     
-    uv_poll_t* handle = new uv_poll_t;
+    auto handle = new uv_poll_t;
     handle->data = data;
     uv_poll_init(uv_default_loop(), handle, camera->fd);
     uv_poll_start(handle, UV_READABLE, cb);
@@ -151,13 +149,13 @@ namespace {
     "int_menu",
   };
   
-  v8::Local<v8::Object> Camera::Controls (camera_t* camera) {
+  static v8::Local<v8::Object> cameraControls(const camera_t* camera) {
     auto ccontrols = camera_controls_new(camera);
     auto controls = Nan::New<v8::Array>(ccontrols->length);
-    for (size_t i = 0; i < ccontrols->length; i++) {
-      auto ccontrol = &ccontrols->head[i];
+    for (auto i = std::size_t{0}; i < ccontrols->length; ++i) {
+      const auto ccontrol = &ccontrols->head[i];
       auto control = Nan::New<v8::Object>();
-      auto name =
+      const auto name =
         Nan::New(reinterpret_cast<char*>(ccontrol->name)).ToLocalChecked();
       Nan::Set(controls, i, control);
       Nan::Set(controls, name, control);
@@ -184,15 +182,17 @@ namespace {
       setValue(control, "menu", menu);
       switch (ccontrol->type) {
       case CAMERA_CTRL_MENU:
-        for (size_t j = 0; j < ccontrol->menus.length; j++) {
-          auto value = reinterpret_cast<char*>(ccontrol->menus.head[j].name);
+        for (auto j = std::size_t{0}; j < ccontrol->menus.length; ++j) {
+          const auto value =
+            reinterpret_cast<char*>(ccontrol->menus.head[j].name);
           Nan::Set(menu, j, Nan::New(value).ToLocalChecked());
         }
         break;
 #ifndef CAMERA_OLD_VIDEODEV2_H
       case CAMERA_CTRL_INTEGER_MENU:
-        for (size_t j = 0; j < ccontrol->menus.length; j++) {
-          auto value = static_cast<int32_t>(ccontrol->menus.head[j].value);
+        for (auto j = std::size_t{0}; j < ccontrol->menus.length; ++j) {
+          const auto value =
+            static_cast<std::int32_t>(ccontrol->menus.head[j].value);
           Nan::Set(menu, j, Nan::New(value));
         }
         break;
@@ -204,7 +204,7 @@ namespace {
     return controls;
   }
   
-  v8::Local<v8::Object> convertFormat(camera_format_t* cformat) {
+  static v8::Local<v8::Object> convertFormat(const camera_format_t* cformat) {
     char name[5];
     camera_format_name(cformat->format, name);
     auto format = Nan::New<v8::Object>();
@@ -219,10 +219,10 @@ namespace {
     return format;
   }
   
-  v8::Local<v8::Object> Camera::Formats(camera_t* camera) {
+  static v8::Local<v8::Object> cameraFormats(const camera_t* camera) {
     auto cformats = camera_formats_new(camera);
     auto formats = Nan::New<v8::Array>(cformats->length);
-    for (size_t i = 0; i < cformats->length; i++) {
+    for (auto i = std::size_t{0}; i < cformats->length; ++i) {
       auto cformat = &cformats->head[i];
       auto format = convertFormat(cformat);
       Nan::Set(formats, i, format);
@@ -234,7 +234,7 @@ namespace {
     if (!info.IsConstructCall()) {
       // [NOTE] generic recursive call with `new`
       std::vector<v8::Local<v8::Value>> args(info.Length());
-      for (std::size_t i = 0; i < args.size(); ++i) args[i] = info[i];
+      for (auto i = std::size_t{0}; i < args.size(); ++i) args[i] = info[i];
       auto inst = Nan::NewInstance(info.Callee(), args.size(), args.data());
       if (!inst.IsEmpty()) info.GetReturnValue().Set(inst.ToLocalChecked());
       return;
@@ -244,7 +244,7 @@ namespace {
       Nan::ThrowTypeError("argument required: device");
       return;
     }
-    auto device = Nan::To<v8::String>(info[0]).ToLocalChecked();
+    const auto device = Nan::To<v8::String>(info[0]).ToLocalChecked();
     auto camera = camera_open(*Nan::Utf8String(device));
     if (!camera) {
       Nan::ThrowError(strerror(errno));
@@ -254,12 +254,12 @@ namespace {
     camera->context.log = &logRecord;
     
     auto thisObj = info.This();
-    auto self = new Camera();
+    auto self = new Camera;
     self->camera = camera;
     self->Wrap(thisObj);
     setValue(thisObj, "device", info[0]);
-    setValue(thisObj, "formats", Formats(camera));
-    setValue(thisObj, "controls", Controls(camera));
+    setValue(thisObj, "formats", cameraFormats(camera));
+    setValue(thisObj, "controls", cameraControls(camera));
   }
   
   NAN_METHOD(Camera::Start) {
@@ -297,10 +297,8 @@ namespace {
       Nan::HandleScope scope;
       auto thisObj = Nan::New<v8::Object>(data->thisObj);
       auto camera = Nan::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
-      bool captured = camera_capture(camera);
-      std::vector<v8::Local<v8::Value>> args {
-        {Nan::New<v8::Boolean>(captured)}
-      };
+      auto captured = bool{camera_capture(camera)};
+      std::vector<v8::Local<v8::Value>> args {{Nan::New(captured)}};
       data->callback->Call(thisObj, args.size(), args.data());
     };
     WatchCB(handle, callCallback);
@@ -310,23 +308,23 @@ namespace {
   }
 
 
-NAN_METHOD(Camera::FrameRaw) {
-  auto camera = Nan::ObjectWrap::Unwrap<Camera>(info.Holder())->camera;
-  const auto size = camera->head.length;
-  auto data = new uint8_t[size];
-  memcpy(data, camera->head.start, size);
-  auto flag = v8::ArrayBufferCreationMode::kInternalized;
-  auto buf = v8::ArrayBuffer::New(info.GetIsolate(), data, size, flag);
-  auto array = v8::Uint8Array::New(buf, 0, size);
-  info.GetReturnValue().Set(array);
-}
+  NAN_METHOD(Camera::FrameRaw) {
+    const auto camera = Nan::ObjectWrap::Unwrap<Camera>(info.Holder())->camera;
+    const auto size = camera->head.length;
+    auto data = new uint8_t[size];
+    std::copy(data, data + size, camera->head.start);
+    const auto flag = v8::ArrayBufferCreationMode::kInternalized;
+    auto buf = v8::ArrayBuffer::New(info.GetIsolate(), data, size, flag);
+    auto array = v8::Uint8Array::New(buf, 0, size);
+    info.GetReturnValue().Set(array);
+  }
   
   NAN_METHOD(Camera::FrameYUYVToRGB) {
-    // TBD: check format as YUYV
-    auto camera = Nan::ObjectWrap::Unwrap<Camera>(info.Holder())->camera;
+    // TBD: check the current format as YUYV
+    const auto camera = Nan::ObjectWrap::Unwrap<Camera>(info.Holder())->camera;
     auto rgb = yuyv2rgb(camera->head.start, camera->width, camera->height);
     const auto size = camera->width * camera->height * 3;
-    auto flag = v8::ArrayBufferCreationMode::kInternalized;
+    const auto flag = v8::ArrayBufferCreationMode::kInternalized;
     auto buf = v8::ArrayBuffer::New(info.GetIsolate(), rgb, size, flag);
     auto array = v8::Uint8Array::New(buf, 0, size);
     info.GetReturnValue().Set(array);
@@ -334,7 +332,7 @@ NAN_METHOD(Camera::FrameRaw) {
   
   
   NAN_METHOD(Camera::ConfigGet) {
-    auto camera = Nan::ObjectWrap::Unwrap<Camera>(info.Holder())->camera;
+    const auto camera = Nan::ObjectWrap::Unwrap<Camera>(info.Holder())->camera;
     camera_format_t cformat;
     if (!camera_config_get(camera, &cformat)) {
       Nan::ThrowError(cameraError(camera));
@@ -350,17 +348,19 @@ NAN_METHOD(Camera::FrameRaw) {
       return;
     }
     auto format = info[0]->ToObject();
-    uint32_t width = getUint(format, "width");
-    uint32_t height = getUint(format, "height");
-    uint32_t numerator = 0;
-    uint32_t denominator = 0;
+    const auto width = getUint(format, "width");
+    const auto height = getUint(format, "height");
+    auto numerator = std::uint32_t{0};
+    auto denominator = std::uint32_t{0};
     auto finterval = getValue(format, "interval");
     if (finterval->IsObject()) {
       auto interval = finterval->ToObject();
       numerator = getUint(interval, "numerator");
       denominator = getUint(interval, "denominator");
     }
-    camera_format_t cformat = {0, width, height, {numerator, denominator}};
+    const camera_format_t cformat = {
+      0, width, height, {numerator, denominator}
+    };
     
     auto thisObj = info.Holder();
     auto camera = Nan::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
@@ -378,10 +378,10 @@ NAN_METHOD(Camera::FrameRaw) {
       Nan::ThrowTypeError("an argument required: id");
       return;
     }
-    uint32_t id = info[0]->Uint32Value();
+    const auto id = info[0]->Uint32Value();
     auto camera = Nan::ObjectWrap::Unwrap<Camera>(info.Holder())->camera;
-    int32_t value = 0;
-    bool success = camera_control_get(camera, id, &value);
+    auto value = std::int32_t{0};
+    auto success = bool{camera_control_get(camera, id, &value)};
     if (!success) {
       Nan::ThrowError(cameraError(camera));
       return;
@@ -394,11 +394,11 @@ NAN_METHOD(Camera::FrameRaw) {
       Nan::ThrowTypeError("arguments required: id, value");
       return;
     }
-    uint32_t id = info[0]->Uint32Value();
-    int32_t value = info[1]->Int32Value();
+    const auto id = info[0]->Uint32Value();
+    const auto value = info[1]->Int32Value();
     auto thisObj = info.Holder();
     auto camera = Nan::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
-    bool success = camera_control_set(camera, id, value);
+    auto success = bool{camera_control_set(camera, id, value)};
     if (!success) {
       Nan::ThrowError(cameraError(camera));
       return;
@@ -420,7 +420,7 @@ NAN_METHOD(Camera::FrameRaw) {
   
   //[module init]
   NAN_MODULE_INIT(Camera::Init) {
-    auto name = Nan::New("Camera").ToLocalChecked();
+    const auto name = Nan::New("Camera").ToLocalChecked();
     auto ctor = Nan::New<v8::FunctionTemplate>(New);
     auto ctorInst = ctor->InstanceTemplate();
     ctor->SetClassName(name);

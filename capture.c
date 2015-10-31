@@ -250,7 +250,7 @@ static inline uint8_t yuv2b(int y, int u, int v)
 {
   return minmax(0, (y + 454 * u) >> 8, 255);
 }
-uint8_t* yuyv2rgb(uint8_t* yuyv, uint32_t width, uint32_t height)
+uint8_t* yuyv2rgb(const uint8_t* yuyv, uint32_t width, uint32_t height)
 {
   uint8_t* rgb = calloc(width * height * 3, sizeof (uint8_t));
   uint8_t* rgbp = rgb;
@@ -302,7 +302,7 @@ void camera_format_name(uint32_t format_id, char* name)
   name[4] = '\0';
 }
 
-static bool camera_format_set(camera_t* camera, camera_format_t* format)
+static bool camera_format_set(camera_t* camera, const camera_format_t* format)
 {
   if (format->width > 0 && format->height > 0) {
     uint32_t pixformat = format->format ? format->format : V4L2_PIX_FMT_YUYV;
@@ -354,7 +354,7 @@ bool camera_config_get(camera_t* camera, camera_format_t* format)
 {
   return camera_format_get(camera, format);
 }
-bool camera_config_set(camera_t* camera, camera_format_t* format)
+bool camera_config_set(camera_t* camera, const camera_format_t* format)
 {
   if (camera->buffer_count > 0) {
     if (!camera_stop(camera)) return false;
@@ -367,7 +367,7 @@ bool camera_config_set(camera_t* camera, camera_format_t* format)
   return camera_buffer_prepare(camera);
 }
 
-camera_formats_t*  camera_formats_new(camera_t* camera)
+camera_formats_t*  camera_formats_new(const camera_t* camera)
 {
   camera_formats_t* ret = malloc(sizeof (camera_formats_t));
   ret->length = 0;
@@ -451,7 +451,7 @@ camera_integer_menu_copy(camera_menu_t* menu, struct v4l2_querymenu* qmenu)
 }
 #endif
 static void 
-camera_controls_menus(camera_t* camera, camera_control_t* control)
+camera_controls_menus(const camera_t* camera, camera_control_t* control)
 {
   void (*copy)(camera_menu_t*, struct v4l2_querymenu*) = &camera_menu_copy;
   switch (control->type) {
@@ -480,7 +480,7 @@ camera_controls_menus(camera_t* camera, camera_control_t* control)
   }
 }
 static camera_control_t* 
-camera_controls_query(camera_t* camera, camera_control_t* control_list)
+camera_controls_query(const camera_t* camera, camera_control_t* control_list)
 {
   camera_control_t* control_list_last = control_list;
   
@@ -510,7 +510,7 @@ camera_controls_query(camera_t* camera, camera_control_t* control_list)
   }
   return control_list_last;
 }
-camera_controls_t* camera_controls_new(camera_t* camera)
+camera_controls_t* camera_controls_new(const camera_t* camera)
 {
   camera_control_t control_list[V4L2_CID_LASTP1 - V4L2_CID_USER_BASE];
   camera_control_t* control_list_last = 

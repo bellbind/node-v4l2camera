@@ -48,7 +48,7 @@ bool camera_stop(camera_t* camera);
 bool camera_close(camera_t* camera);
 
 bool camera_capture(camera_t* camera);
-uint8_t* yuyv2rgb(uint8_t* yuyv, uint32_t width, uint32_t height);
+uint8_t* yuyv2rgb(const uint8_t* yuyv, uint32_t width, uint32_t height);
 
 
 typedef struct {
@@ -70,10 +70,10 @@ typedef struct {
 uint32_t camera_format_id(const char* name);
 void camera_format_name(uint32_t format_id, char* name);
 
-camera_formats_t* camera_formats_new(camera_t* camera);
+camera_formats_t* camera_formats_new(const camera_t* camera);
 void camera_formats_delete(camera_formats_t* formats);
 bool camera_config_get(camera_t* camera, camera_format_t* format);
-bool camera_config_set(camera_t* camera, camera_format_t* format);
+bool camera_config_set(camera_t* camera, const camera_format_t* format);
 
 
 typedef enum {
@@ -124,7 +124,7 @@ typedef struct {
   camera_control_t* head;
 } camera_controls_t;
   
-camera_controls_t* camera_controls_new(camera_t* camera);
+camera_controls_t* camera_controls_new(const camera_t* camera);
 void camera_controls_delete(camera_controls_t* controls);
 bool camera_control_get(camera_t* camera, uint32_t id, int32_t* value);
 bool camera_control_set(camera_t* camera, uint32_t id, int32_t value);
