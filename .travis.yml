@@ -14,5 +14,4 @@ install:
   - make -f c-examples.makefile CC=gcc-5
 script:
   - uname -a
-  - ls -l /dev/video*
-  
+  - ls /usr/include/linux/v*.h  
