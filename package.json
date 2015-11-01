@@ -1,43 +1,44 @@
 {
     "name": "v4l2camera",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "description": "Capturing images from USB(UVC) webcam on linux machines",
     "keywords": [
-	"linux",
-	"camera",
-	"native",
-	"v4l2",
-	"video4linux2"
+        "linux",
+        "camera",
+        "native",
+        "v4l2",
+        "video4linux2"
     ],
     "homepage": "https://github.com/bellbind/node-v4l2camera",
     "bugs": {
-	"url": "https://github.com/bellbind/node-v4l2camera/issues"
+        "url": "https://github.com/bellbind/node-v4l2camera/issues"
     },
     "license": "(MIT OR LGPL-3.0)",
     "author": "bellbind <bellbind@gmail.com> (http://bellbind.tumblr.com)",
     "main": "./index.js",
     "directories": {
-	"example": "./examples"
+        "example": "./examples"
     },
     "repository": {
-	"type": "git",
-	"url": "http://github.com/bellbind/node-v4l2camera.git"
+        "type": "git",
+        "url": "http://github.com/bellbind/node-v4l2camera.git"
     },
     "devDependencies": {
-	"pngjs": "*"
+        "pngjs": "*",
+        "jpeg-js": "*"
     },
     "engines": {
-	"node": ">=4.0.0"
+        "node": ">=4.0.0"
     },
     "scripts": {
-	"test": "node test.js",
+        "test": "node test.js",
         "make-c-examples": "make -f c-examples.makefile"
     },
     "os": [
-	"linux"
+        "linux"
     ],
     "dependencies": {
-	"nan": ">=2.0.0"
+        "nan": ">=2.0.0"
     },
     "contributors": [
         "Tim Cameron Ryan <id@timryan.org> (https://github.com/tcr)",

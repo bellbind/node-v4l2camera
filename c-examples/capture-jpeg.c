@@ -79,8 +79,15 @@ int main(int argc, char* argv[])
   }
   camera_format_t config = {0, width, height, {0, 0}};
   if (!camera_config_set(camera, &config)) goto error;
+  if (!camera_config_get(camera, &config)) goto error;
+  char name[5];
+  camera_format_name(config.format, name);
+  if (strcmp(name, "YUYV") != 0 || strcmp(name, "MJPG") != 0) {
+    fprintf(stderr, "camera format [%s] is not supported\n", name);
+    goto error;
+  }
+
   if (!camera_start(camera)) goto error;
-  
   struct timeval timeout;
   timeout.tv_sec = 1;
   timeout.tv_usec = 0;
@@ -90,12 +97,16 @@ int main(int argc, char* argv[])
   }
   camera_frame(camera, timeout);
 
-  unsigned char* rgb = 
-    yuyv2rgb(camera->head.start, camera->width, camera->height);
   FILE* out = fopen(output, "w");
-  jpeg(out, rgb, camera->width, camera->height, 100);
+  if (strcmp(name, "YUYV") == 0) {
+    unsigned char* rgb = 
+      yuyv2rgb(camera->head.start, camera->width, camera->height);
+    jpeg(out, rgb, camera->width, camera->height, 100);
+    free(rgb);
+  } else if (strcmp(name, "MJPG")) {
+    fwrite(camera->head.start, camera->head.length, 1, out);
+  }
   fclose(out);
-  free(rgb);
   
   camera_stop(camera);
   camera_close(camera);

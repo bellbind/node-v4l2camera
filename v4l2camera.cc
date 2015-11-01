@@ -298,7 +298,7 @@ namespace {
       auto thisObj = Nan::New<v8::Object>(data->thisObj);
       auto camera = Nan::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
       auto captured = bool{camera_capture(camera)};
-      std::vector<v8::Local<v8::Value>> args {{Nan::New(captured)}};
+      std::vector<v8::Local<v8::Value>> args{{Nan::New(captured)}};
       data->callback->Call(thisObj, args.size(), args.data());
     };
     WatchCB(handle, callCallback);
@@ -405,7 +405,6 @@ namespace {
     }
     info.GetReturnValue().Set(thisObj);
   }
-  
   
   
   Camera::Camera() : camera(nullptr) {}

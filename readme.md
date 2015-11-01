@@ -32,7 +32,7 @@ if (cam.configGet().formatName !== "MJPG") {
 cam.start();
 cam.capture(function (success) {
   var frame = cam.frameRaw();
-  require("fs").writeFileSync("result.jpg", Buffer(frame));
+  require("fs").createWriteStream("result.jpg").end(Buffer(frame));
   cam.stop();
 });
 ```
@@ -41,9 +41,10 @@ For more detail see: examples/*.js (required "pngjs" modules)
 
 ## API
 
-Initializing API
+Initializing and Configuration API
 
 - `var cam = new v4l2camera.Camera(device)`
+    - `device`: e.g. `"/dev/video0"`
 - `cam.formats`: Array of available frame formats
 - `var format = cam.formats[n]`
     - `format.formatName`: Name of pixel format. e.g. `"YUYV"`, `"MJPG"`
@@ -58,22 +59,28 @@ Initializing API
   if the members exist in the `format` object
 - `cam.configGet()` : Get a `format` object of current config
 
-Capturing API
+Capturing API (control flow)
 
 - `cam.start()`
-- `cam.stop(afterStoped())`
+- `cam.stop(afterStoped)`
     - call re-`config(format)` or re-`start()` in `afterStoped()` callback
 - `cam.capture(afterCaptured)`: Do cache a current captured frame
-    - call `cam.toRGB()` in `afterCaptured(true)` callback
-- `cam.frameRaw()`: Get the cached raw frame as Uint8Array
+    - use `cam.frameRaw()` in `afterCaptured(true)` callback
+
+Capturing API (frame access)
+
+- `cam.frameRaw()`: Get the cached raw frame as `Uint8Array`
    (YUYU frame is array of YUYV..., MJPG frame is single JPEG compressed data)
-- `cam.toYUYV()`: Get the cached frame as 8bit int Array of pixels YUYVYUYV...
+- `cam.toYUYV()`: Get the cached frame as `Uint8Array` of pixels YUYVYUYV...
    (will be deprecated method)
-- `cam.toRGB()`: Get the cached frame as 8bit int Array of pixels RGBRGB...
+- `cam.toRGB()`: Get the cached frame as `Uint8Array` of pixels RGBRGB...
    (will be deprecated method)
-- `cam.device`
-- `cam.width`
-- `cam.height`
+
+Capturing API (camera frame info)
+
+- `cam.device`: the device file name e.g. `"/dev/video0"`
+- `cam.width`: pixel width of the camera
+- `cam.height`: pixel height of the camera
 
 Control API
 

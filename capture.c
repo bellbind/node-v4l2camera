@@ -11,6 +11,7 @@
 
 
 static void log_stderr(camera_log_t type, const char* msg, void* pointer) {
+  (void) pointer;
   switch (type) {
   case CAMERA_ERROR:
     fprintf(stderr, "ERROR [%s] %d: %s\n", msg, errno, strerror(errno));
@@ -240,7 +241,7 @@ static inline int minmax(int min, int v, int max)
 }
 static inline uint8_t yuv2r(int y, int u, int v)
 {
-  return minmax(0, (y + 359 * v) >> 8, 255);
+  (void) u; return minmax(0, (y + 359 * v) >> 8, 255);
 }
 static inline uint8_t yuv2g(int y, int u, int v)
 {
@@ -248,38 +249,25 @@ static inline uint8_t yuv2g(int y, int u, int v)
 }
 static inline uint8_t yuv2b(int y, int u, int v)
 {
-  return minmax(0, (y + 454 * u) >> 8, 255);
+  (void) v; return minmax(0, (y + 454 * u) >> 8, 255);
 }
 uint8_t* yuyv2rgb(const uint8_t* yuyv, uint32_t width, uint32_t height)
 {
   uint8_t* rgb = calloc(width * height * 3, sizeof (uint8_t));
-  uint8_t* rgbp = rgb;
   for (size_t i = 0; i < height; i++) {
     for (size_t j = 0; j < width; j += 2) {
-#if 0
       size_t index = i * width + j;
-      int y0 = yuyv[index * 2 + 0] << 8;
-      int u = yuyv[index * 2 + 1] - 128;
-      int y1 = yuyv[index * 2 + 2] << 8;
-      int v = yuyv[index * 2 + 3] - 128;
-      rgb[index * 3 + 0] = yuv2r(y0, u, v);
-      rgb[index * 3 + 1] = yuv2g(y0, u, v);
-      rgb[index * 3 + 2] = yuv2b(y0, u, v);
-      rgb[index * 3 + 3] = yuv2r(y1, u, v);
-      rgb[index * 3 + 4] = yuv2g(y1, u, v);
-      rgb[index * 3 + 5] = yuv2b(y1, u, v);
-#else
-      int y0 = *yuyv++ << 8;
-      int u = *yuyv++ - 128;
-      int y1 = *yuyv++ << 8;
-      int v = *yuyv++ - 128;
-      *rgbp++ = yuv2r(y0, u, v);
-      *rgbp++ = yuv2g(y0, u, v);
-      *rgbp++ = yuv2b(y0, u, v);
-      *rgbp++ = yuv2r(y1, u, v);
-      *rgbp++ = yuv2g(y1, u, v);
-      *rgbp++ = yuv2b(y1, u, v);
-#endif
+      size_t index2 = index * 2, index3 = index * 3;
+      int y0 = yuyv[index2 + 0] << 8;
+      int u = yuyv[index2 + 1] - 128;
+      int y1 = yuyv[index2 + 2] << 8;
+      int v = yuyv[index2 + 3] - 128;
+      rgb[index3 + 0] = yuv2r(y0, u, v);
+      rgb[index3 + 1] = yuv2g(y0, u, v);
+      rgb[index3 + 2] = yuv2b(y0, u, v);
+      rgb[index3 + 3] = yuv2r(y1, u, v);
+      rgb[index3 + 4] = yuv2g(y1, u, v);
+      rgb[index3 + 5] = yuv2b(y1, u, v);
     }
   }
   return rgb;
