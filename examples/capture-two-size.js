@@ -8,22 +8,17 @@ const main = () => flow(function* () {
         console.log("YUYV camera required");
         process.exit(1);
     }
-
-    // capturing a 352x288 frame
-    cam.configSet({width: 352, height: 288});
-    cam.start();
-    for (let i = 0; i < 6; i++) yield new Promise(r => cam.capture(r));
-    saveAsPng(cam.toRGB(), cam.width, cam.height, "result1.png");
-    console.log(`save (${cam.width}, ${cam.height}) as result1.png`);
-    yield new Promise(r => cam.stop(r));
-
-    // capturing a 160x120 frame
-    cam.configSet({width: 160, height: 120});
-    cam.start();
-    for (let i = 0; i < 6; i++) yield new Promise(r => cam.capture(r));
-    saveAsPng(cam.toRGB(), cam.width, cam.height, "result2.png");
-    console.log(`save (${cam.width}, ${cam.height}) as result2.png`);
-    yield new Promise(r => cam.stop(r));
+    console.log(`start camera ${cam.device}`);
+    
+    const capturing = function* (width, height, filename) {
+        cam.configSet({width, height}).start();
+        for (let i = 0; i < 6; i++) yield new Promise(r => cam.capture(r));
+        saveAsPng(cam.toRGB(), cam.width, cam.height, filename);
+        console.log(`save (${cam.width}, ${cam.height}) as ${filename}`);
+        yield new Promise(r => cam.stop(r));
+    };
+    yield* capturing(352, 288, "result1.png");
+    yield* capturing(160, 120, "result2.png");
 }).then(() => console.log("finished")).catch(err => console.log(err));
 
 
