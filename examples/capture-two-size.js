@@ -26,7 +26,7 @@ const main = () => flow(function* () {
 const flow = (gfunc) => new Promise((f, r) => {
     const g = gfunc(), n = g.next.bind(g), t = g.throw.bind(g);
     const subflows = item => item.done ? f(item.value) :
-          Promise.resolve(item.value).then(n, t).then(subflows, r);
+              Promise.resolve(item.value).then(n, t).then(subflows, r);
     subflows(n());
 });
 

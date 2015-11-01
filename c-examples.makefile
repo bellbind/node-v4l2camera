@@ -1,17 +1,18 @@
 # make -f c-examples.makefile
 
 CC = gcc
-CFLAGS = -std=c11 -Wall -Wextra -Wno-unused-parameter -pedantic
-all: capture-jpeg list-controls list-formats
+CFLAGS = -std=c11 -Wall -Wextra -Wunused-parameter -pedantic
+LDLIBS = -ljpeg
 
-capture-jpeg: capture.h capture.c c-examples/capture-jpeg.c
-	$(CC) $(CFLAGS) capture.c c-examples/capture-jpeg.c -ljpeg -o $@
+capturesrc := capture.h capture.c
+srcdir := c-examples
+mains := $(wildcard $(srcdir)/*.c)
+targets := $(patsubst $(srcdir)/%.c,%,$(mains))
 
-list-controls: capture.h capture.c c-examples/list-controls.c
-	$(CC) $(CFLAGS) capture.c c-examples/list-controls.c -o $@
+all: $(targets)
 
-list-formats: capture.h capture.c c-examples/list-formats.c
-	$(CC) $(CFLAGS) capture.c c-examples/list-formats.c -o $@
+$(targets): %: $(srcdir)/%.c $(capturesrc)
+	$(CC) $(CFLAGS) $(filter %.c, $^) $(LDLIBS) -o $@
 
 clean:
-	rm -f capture-jpeg list-controls list-formats
+	rm -f $(targets)
