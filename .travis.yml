@@ -1,4 +1,5 @@
-sudo: false
+sudo: required
+dist: trusty
 language: node_js
 node_js:
   - "stable"
@@ -9,9 +10,12 @@ addons:
     packages:
     - gcc-5
     - g++-5
+before_install:
+  - uname -a
+  - ls /dev/v*
+  - ls /usr/include/linux/v*.h
 install:
   - CC=gcc-5 CXX=g++-5 npm install
   - make -f c-examples.makefile CC=gcc-5
 script:
-  - uname -a
-  - ls /usr/include/linux/v*.h  
+  - npm test
