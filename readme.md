@@ -112,6 +112,8 @@ cd ../..
 
 - Ubuntu wily armhf on BeagleBone Black with USB Buffalo BSW13K10H
 - Ubuntu wily amd64 on Acer Aspire One with its screen facecam
+- [Travis-CI (build only)](https://travis-ci.org/bellbind/node-v4l2camera):
+  ![Build Status](https://travis-ci.org/bellbind/node-v4l2camera.svg)
 
 ## Licenses
 
