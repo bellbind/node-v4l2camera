@@ -1,6 +1,6 @@
 {
     "name": "v4l2camera",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "Capturing images from USB(UVC) webcam on linux machines",
     "keywords": [
         "linux",
@@ -38,7 +38,7 @@
         "linux"
     ],
     "dependencies": {
-        "nan": ">=2.0.0"
+        "nan": ">=2.3.0"
     },
     "contributors": [
         "Tim Cameron Ryan <id@timryan.org> (https://github.com/tcr)",

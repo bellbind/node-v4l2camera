@@ -203,6 +203,23 @@ namespace {
     camera_controls_delete(ccontrols);
     return controls;
   }
+
+  static camera_format_t convertCFormat(const v8::Local<v8::Object> format) {
+    const auto pixformat = getUint(format, "format");
+    const auto width = getUint(format, "width");
+    const auto height = getUint(format, "height");
+    auto numerator = std::uint32_t{0};
+    auto denominator = std::uint32_t{0};
+    const auto finterval = getValue(format, "interval");
+    if (finterval->IsObject()) {
+      const auto interval = finterval->ToObject();
+      numerator = getUint(interval, "numerator");
+      denominator = getUint(interval, "denominator");
+    }
+    return {
+      pixformat, width, height, {numerator, denominator}
+    };
+  }
   
   static v8::Local<v8::Object> convertFormat(const camera_format_t* cformat) {
     char name[5];
@@ -347,21 +364,7 @@ namespace {
       Nan::ThrowTypeError("argument required: config");
       return;
     }
-    auto format = info[0]->ToObject();
-    const auto width = getUint(format, "width");
-    const auto height = getUint(format, "height");
-    auto numerator = std::uint32_t{0};
-    auto denominator = std::uint32_t{0};
-    auto finterval = getValue(format, "interval");
-    if (finterval->IsObject()) {
-      auto interval = finterval->ToObject();
-      numerator = getUint(interval, "numerator");
-      denominator = getUint(interval, "denominator");
-    }
-    const camera_format_t cformat = {
-      0, width, height, {numerator, denominator}
-    };
-    
+    const auto cformat = convertCFormat(info[0]->ToObject());
     auto thisObj = info.Holder();
     auto camera = Nan::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
     if (!camera_config_set(camera, &cformat)) {
