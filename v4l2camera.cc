@@ -329,7 +329,7 @@ namespace {
     const auto camera = Nan::ObjectWrap::Unwrap<Camera>(info.Holder())->camera;
     const auto size = camera->head.length;
     auto data = new uint8_t[size];
-    std::copy(data, data + size, camera->head.start);
+    std::copy(camera->head.start, camera->head.start + size, data);
     const auto flag = v8::ArrayBufferCreationMode::kInternalized;
     auto buf = v8::ArrayBuffer::New(info.GetIsolate(), data, size, flag);
     auto array = v8::Uint8Array::New(buf, 0, size);

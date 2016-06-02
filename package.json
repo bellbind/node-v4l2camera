@@ -1,6 +1,6 @@
 {
     "name": "v4l2camera",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "Capturing images from USB(UVC) webcam on linux machines",
     "keywords": [
         "linux",
