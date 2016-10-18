@@ -464,6 +464,8 @@ camera_controls_menus(const camera_t* camera, camera_control_t* control)
     qmenu.index = mindex;
     if (ioctl(camera->fd, VIDIOC_QUERYMENU, &qmenu) == 0) {
       copy(&control->menus.head[mindex], &qmenu);
+    } else {
+      error(camera, "VIDIOC_QUERYMENU");
     }
   }
 }
@@ -471,12 +473,11 @@ static camera_control_t*
 camera_controls_query(const camera_t* camera, camera_control_t* control_list)
 {
   camera_control_t* control_list_last = control_list;
+  struct v4l2_queryctrl qctrl;
   
-  for (uint32_t cid = V4L2_CID_USER_BASE; cid < V4L2_CID_LASTP1; cid++) {
-    struct v4l2_queryctrl qctrl;
-    memset(&qctrl, 0, sizeof qctrl);
-    qctrl.id = cid;
-    if (ioctl(camera->fd, VIDIOC_QUERYCTRL, &qctrl) == -1) continue;
+  for (qctrl.id = V4L2_CTRL_FLAG_NEXT_CTRL;
+       ioctl(camera->fd, VIDIOC_QUERYCTRL, &qctrl) == 0;
+       qctrl.id |= V4L2_CTRL_FLAG_NEXT_CTRL) {
     camera_control_t* control = control_list_last++;
     control->id = qctrl.id;
     memcpy(control->name, qctrl.name, sizeof qctrl.name);
@@ -500,7 +501,7 @@ camera_controls_query(const camera_t* camera, camera_control_t* control_list)
 }
 camera_controls_t* camera_controls_new(const camera_t* camera)
 {
-  camera_control_t control_list[V4L2_CID_LASTP1 - V4L2_CID_USER_BASE];
+  camera_control_t control_list[V4L2_CID_MAX_CTRLS]; // It can't be a higher qty :P
   camera_control_t* control_list_last = 
     camera_controls_query(camera, control_list);
   camera_controls_t* controls = malloc(sizeof (camera_controls_t));
