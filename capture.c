@@ -25,12 +25,12 @@ static void log_stderr(camera_log_t type, const char* msg, void* pointer) {
   }
 }
 
-static bool error(camera_t* camera, const char * msg)
+static bool error(const camera_t* camera, const char * msg)
 {
   camera->context.log(CAMERA_ERROR, msg, camera->context.pointer);
   return false;
 }
-static bool failure(camera_t* camera, const char * msg)
+static bool failure(const camera_t* camera, const char * msg)
 {
   camera->context.log(CAMERA_FAIL, msg, camera->context.pointer);
   return false;
