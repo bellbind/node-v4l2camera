@@ -10,6 +10,9 @@
         "xcode_settings": {
     	    "OTHER_CPLUSPLUSFLAGS": ["-std=c++14"],
         },
+        "libraries": [
+            "-lv4l2"
+        ],
         "cflags_c": ["-std=c11", "-Wunused-parameter"], 
         "cflags_cc": ["-std=c++14"]
     }]

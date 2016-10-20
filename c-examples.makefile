@@ -2,7 +2,7 @@
 
 CC = gcc
 CFLAGS = -std=c11 -Wall -Wextra -Wunused-parameter -pedantic
-LDLIBS = -ljpeg
+LDLIBS = -ljpeg -lv4l2
 
 capturesrc := capture.h capture.c
 srcdir := c-examples

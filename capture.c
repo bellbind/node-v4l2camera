@@ -5,9 +5,9 @@
 
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <linux/videodev2.h>
+#include <libv4l2.h>
 
 
 static void log_stderr(camera_log_t type, const char* msg, void* pointer) {
@@ -39,7 +39,7 @@ static bool failure(const camera_t* camera, const char * msg)
 static int xioctl(int fd, unsigned long int request, void* arg)
 {
   for (int i = 0; i < 100; i++) {
-    int r = ioctl(fd, request, arg);
+    int r = v4l2_ioctl(fd, request, arg);
     if (r != -1 || errno != EINTR) return r;
   }
   return -1;
@@ -49,7 +49,7 @@ static int xioctl(int fd, unsigned long int request, void* arg)
 
 camera_t* camera_open(const char * device)
 {
-  int fd = open(device, O_RDWR | O_NONBLOCK, 0);
+  int fd = v4l2_open(device, O_RDWR | O_NONBLOCK, 0);
   if (fd == -1) return NULL;
   
   camera_t* camera = malloc(sizeof (camera_t));
@@ -69,7 +69,7 @@ camera_t* camera_open(const char * device)
 static void free_buffers(camera_t* camera, size_t count)
 {
   for (size_t i = 0; i < count; i++) {
-    munmap(camera->buffers[i].start, camera->buffers[i].length);
+    v4l2_munmap(camera->buffers[i].start, camera->buffers[i].length);
   }
   free(camera->buffers);
   camera->buffers = NULL;
@@ -126,7 +126,7 @@ static bool camera_buffer_prepare(camera_t* camera)
     if (buf.length > buf_max) buf_max = buf.length;
     camera->buffers[i].length = buf.length;
     camera->buffers[i].start = 
-      mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, 
+      v4l2_mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, 
            camera->fd, buf.m.offset);
     if (camera->buffers[i].start == MAP_FAILED) {
       free_buffers(camera, i);
@@ -213,7 +213,7 @@ bool camera_close(camera_t* camera)
     camera_stop(camera);
   }
   for (int i = 0; i < 10; i++) {
-    if (close(camera->fd) != -1) break;
+    if (v4l2_close(camera->fd) != -1) break;
   }
   free(camera);
   return true;
@@ -365,14 +365,14 @@ camera_formats_t*  camera_formats_new(const camera_t* camera)
     memset(&fmt, 0, sizeof fmt);
     fmt.index = i;
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    if (ioctl(camera->fd, VIDIOC_ENUM_FMT, &fmt) == -1) break;
+    if (v4l2_ioctl(camera->fd, VIDIOC_ENUM_FMT, &fmt) == -1) break;
     //printf("[%s]\n", fmt.description);
     for (uint32_t j = 0; ; j++) {
       struct v4l2_frmsizeenum frmsize;
       memset(&frmsize, 0, sizeof frmsize);
       frmsize.index = j;
       frmsize.pixel_format = fmt.pixelformat;
-      if (ioctl(camera->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize) == -1) break;
+      if (v4l2_ioctl(camera->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize) == -1) break;
       if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
         //printf("- w: %d, h: %d\n", 
         //       frmsize.discrete.width, frmsize.discrete.height);
@@ -383,7 +383,7 @@ camera_formats_t*  camera_formats_new(const camera_t* camera)
           frmival.pixel_format = fmt.pixelformat;
           frmival.width = frmsize.discrete.width;
           frmival.height = frmsize.discrete.height;
-          if (ioctl(camera->fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmival) == -1) 
+          if (v4l2_ioctl(camera->fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmival) == -1)
             break;
           if (frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
             //printf("  - fps: %d/%d\n", 
@@ -462,7 +462,7 @@ camera_controls_menus(const camera_t* camera, camera_control_t* control)
     memset(&qmenu, 0, sizeof qmenu);
     qmenu.id = control->id;
     qmenu.index = mindex;
-    if (ioctl(camera->fd, VIDIOC_QUERYMENU, &qmenu) == 0) {
+    if (v4l2_ioctl(camera->fd, VIDIOC_QUERYMENU, &qmenu) == 0) {
       copy(&control->menus.head[mindex], &qmenu);
     } else {
       error(camera, "VIDIOC_QUERYMENU");
@@ -476,7 +476,7 @@ camera_controls_query(const camera_t* camera, camera_control_t* control_list)
   struct v4l2_queryctrl qctrl;
   
   for (qctrl.id = V4L2_CTRL_FLAG_NEXT_CTRL;
-       ioctl(camera->fd, VIDIOC_QUERYCTRL, &qctrl) == 0;
+       v4l2_ioctl(camera->fd, VIDIOC_QUERYCTRL, &qctrl) == 0;
        qctrl.id |= V4L2_CTRL_FLAG_NEXT_CTRL) {
     camera_control_t* control = control_list_last++;
     control->id = qctrl.id;
@@ -526,7 +526,7 @@ bool camera_control_get(camera_t* camera, uint32_t id, int32_t* value)
   struct v4l2_control ctrl;
   ctrl.id = id;
   ctrl.value = 0;
-  if (ioctl(camera->fd, VIDIOC_G_CTRL, &ctrl) == -1) 
+  if (v4l2_ioctl(camera->fd, VIDIOC_G_CTRL, &ctrl) == -1)
     return error(camera, "VIDIOC_G_CTRL");
   *value = ctrl.value;
   return true;
@@ -537,7 +537,7 @@ bool camera_control_set(camera_t* camera, uint32_t id, int32_t value)
   struct v4l2_control ctrl;
   ctrl.id = id;
   ctrl.value = value;
-  if (ioctl(camera->fd, VIDIOC_S_CTRL, &ctrl) == -1) 
+  if (v4l2_ioctl(camera->fd, VIDIOC_S_CTRL, &ctrl) == -1)
     return error(camera, "VIDIOC_S_CTRL");
   return true;
 }
