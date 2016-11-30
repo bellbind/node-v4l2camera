@@ -523,11 +523,22 @@ void camera_controls_delete(camera_controls_t* controls)
 
 bool camera_control_get(camera_t* camera, uint32_t id, int32_t* value)
 {
+  int ioctl_result;
   struct v4l2_control ctrl;
   ctrl.id = id;
   ctrl.value = 0;
-  if (v4l2_ioctl(camera->fd, VIDIOC_G_CTRL, &ctrl) == -1)
+
+  for(int i = 0; i < 100; i++) {
+    ioctl_result = v4l2_ioctl(camera->fd, VIDIOC_G_CTRL, &ctrl);
+    if (ioctl_result != -1)
+      break;
+    else if(errno != EIO)
+      return error(camera, "VIDIOC_G_CTRL");
+  }
+
+  if(ioctl_return == -1)
     return error(camera, "VIDIOC_G_CTRL");
+
   *value = ctrl.value;
   return true;
 }
