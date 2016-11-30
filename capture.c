@@ -536,7 +536,7 @@ bool camera_control_get(camera_t* camera, uint32_t id, int32_t* value)
       return error(camera, "VIDIOC_G_CTRL");
   }
 
-  if(ioctl_return == -1)
+  if(ioctl_result == -1)
     return error(camera, "VIDIOC_G_CTRL");
 
   *value = ctrl.value;
