@@ -104,7 +104,7 @@ static bool camera_buffer_prepare(camera_t* camera)
 {
   struct v4l2_requestbuffers req;
   memset(&req, 0, sizeof req);
-  req.count = 4;
+  req.count = 1;
   req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   req.memory = V4L2_MEMORY_MMAP;
   if (xioctl(camera->fd, VIDIOC_REQBUFS, &req) == -1)
@@ -199,7 +199,7 @@ bool camera_start(camera_t* camera)
     if (xioctl(camera->fd, VIDIOC_QBUF, &buf) == -1) 
       return error(camera, "VIDIOC_QBUF");
   }
-  
+
   enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   if (xioctl(camera->fd, VIDIOC_STREAMON, &type) == -1) 
     return error(camera, "VIDIOC_STREAMON");
@@ -221,6 +221,7 @@ bool camera_close(camera_t* camera)
 
 
 //[[capturing]
+/*
 bool camera_capture(camera_t* camera)
 {
   struct v4l2_buffer buf;
@@ -232,6 +233,48 @@ bool camera_capture(camera_t* camera)
   camera->head.length = buf.bytesused;
   if (xioctl(camera->fd, VIDIOC_QBUF, &buf) == -1) return false;
   return true;
+}*/
+
+bool camera_capture(camera_t* camera)
+{
+  fd_set                          fds;
+  struct timeval                  tv;
+  int                             r;
+
+  struct v4l2_buffer buf;
+
+  //discard filled buffer
+  memset(&buf, 0, sizeof buf);
+  buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  buf.memory = V4L2_MEMORY_MMAP;
+  if (xioctl(camera->fd, VIDIOC_DQBUF, &buf) == -1) return false;
+  if (xioctl(camera->fd, VIDIOC_QBUF, &buf) == -1) return false;
+
+  //wait for capture
+  do {
+    FD_ZERO(&fds);
+    FD_SET(camera->fd, &fds);
+
+    tv.tv_sec = 2;
+    tv.tv_usec = 0;
+
+    r = select(camera->fd + 1, &fds, NULL, NULL, &tv);
+  } while ((r == -1 && (errno == EINTR)));
+  if (r == -1) {
+    return error(camera, "select error");
+  }
+
+  //grab
+  memset(&buf, 0, sizeof buf);
+  buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  buf.memory = V4L2_MEMORY_MMAP;
+  if (xioctl(camera->fd, VIDIOC_DQBUF, &buf) == -1) return false;
+  memcpy(camera->head.start, camera->buffers[buf.index].start, buf.bytesused);
+  camera->head.length = buf.bytesused;
+  if (xioctl(camera->fd, VIDIOC_QBUF, &buf) == -1) return false;
+  return true;
+
+
 }
 
 
