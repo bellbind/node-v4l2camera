@@ -30,6 +30,7 @@ namespace {
     static NAN_METHOD(ConfigSet);
     static NAN_METHOD(ControlGet);
     static NAN_METHOD(ControlSet);
+    static NAN_METHOD(ReloadControls);
 
     static void StopCB(uv_poll_t* handle, int status, int events);
     static void CaptureCB(uv_poll_t* handle, int status, int events);
@@ -394,6 +395,15 @@ namespace {
     info.GetReturnValue().Set(thisObj);
   }
 
+  NAN_METHOD(Camera::ReloadControls) {
+    auto thisObj = info.Holder();
+    auto camera = Nan::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
+    auto newControls = cameraControls(camera);
+    setValue(thisObj, "controls", newControls);
+
+    info.GetReturnValue().Set(newControls);
+  }
+
   Camera::Camera() : camera(nullptr) {}
   Camera::~Camera() {
     if (camera) {
@@ -419,6 +429,7 @@ namespace {
     Nan::SetPrototypeMethod(ctor, "configSet", ConfigSet);
     Nan::SetPrototypeMethod(ctor, "controlGet", ControlGet);
     Nan::SetPrototypeMethod(ctor, "controlSet", ControlSet);
+    Nan::SetPrototypeMethod(ctor, "reloadControls", ReloadControls);
     Nan::Set(target, name, Nan::GetFunction(ctor).ToLocalChecked());
   }
 }
