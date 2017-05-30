@@ -23,17 +23,32 @@ npm install v4l2camera
 
 ```js
 var v4l2camera = require("v4l2camera");
-
+ 
 var cam = new v4l2camera.Camera("/dev/video0");
-if (cam.configGet().formatName !== "MJPG") {
-  console.log("NOTICE: MJPG camera required");
-  process.exit(1);
-}
+
+// Select format
+let format = cam.formats.reduce(function(best,format){
+  if (
+    format.formatName === 'MJPG' &&
+    format.width > (best.width || 0) &&
+    format.height > (best.height || 0)
+    ){
+    best = format;
+  }
+  return best;
+},{})
+
+// Check format correct
+cam.configSet(format);
+console.log("FORMAT:",cam.configGet());
+
+// Start capture
 cam.start();
 cam.capture(function (success) {
+  if (!success) return;
   var frame = cam.frameRaw();
-  require("fs").createWriteStream("result.jpg").end(Buffer(frame));
-  cam.stop();
+  require("fs").createWriteStream("data/result.jpg").end(Buffer(frame));
+  cam.stop(function(){ console.log("STOPPED"); });
 });
 ```
 
