@@ -1,0 +1,16 @@
+version: "3"
+services:
+  # building `build/Release/v4l2camera.node` on docker linux image
+  # $ docker-compose run --rm build-native
+  build-native:
+    image: node:latest
+    volumes:
+      - ./:/usr/src/v4l2camera
+    working_dir: /usr/src/v4l2camera
+    command: npm install --unsafe-perm
+  build-c-examples:
+    image: node:latest
+    volumes:
+      - ./:/usr/src/v4l2camera
+    working_dir: /usr/src/v4l2camera
+    command: npm run make-c-examples
