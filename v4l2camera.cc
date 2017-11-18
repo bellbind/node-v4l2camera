@@ -142,8 +142,9 @@ namespace {
     "int",
     "bool",
     "menu",
+    "button",
     "int64",
-    "class"
+    "class",
     "string",
     "bitmask",
     "int_menu",
