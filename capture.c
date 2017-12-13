@@ -9,6 +9,35 @@
 #include <sys/mman.h>
 #include <linux/videodev2.h>
 
+typedef struct {
+	uint16_t width;
+	uint16_t height;
+} frame_size_t;
+
+frame_size_t frame_sizes[] = {
+   { 640, 480 }
+  ,{ 800, 600 }
+  ,{ 1024, 768 }
+  ,{ 1440, 1080 }
+  //,{ 1920, 1440 }
+  ,{ 1024, 576 }
+  ,{ 1280, 720 }
+  ,{ 1920, 1080 }
+  //,{ 2560, 1440 }
+  //,{ 3840, 2160 }
+};
+
+uint8_t frame_intervals[] = {
+  5,
+  10,
+  15,
+  20,
+  30,
+  //45,
+  //60,
+  //90,
+  //120
+};
 
 static void log_stderr(camera_log_t type, const char* msg, void* pointer) {
   (void) pointer;
@@ -373,51 +402,85 @@ camera_formats_t*  camera_formats_new(const camera_t* camera)
       frmsize.index = j;
       frmsize.pixel_format = fmt.pixelformat;
       if (ioctl(camera->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize) == -1) break;
-      if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
-        //printf("- w: %d, h: %d\n", 
-        //       frmsize.discrete.width, frmsize.discrete.height);
-        for (uint32_t k = 0; ; k++) {
+      if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { // discrete framesizes
+        for (uint32_t k = 0; ; k++) { // discrete frame sizes
           struct v4l2_frmivalenum frmival;
           memset(&frmival, 0, sizeof frmival);
           frmival.index = k;
           frmival.pixel_format = fmt.pixelformat;
           frmival.width = frmsize.discrete.width;
           frmival.height = frmsize.discrete.height;
-          if (ioctl(camera->fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmival) == -1) 
+          //printf("checking frameintervals for discrete size: %dx%dpx\n", frmival.width, frmival.height);
+          if (ioctl(camera->fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmival) == -1) {
+            //printf("frameintervals ioctl failed\n");
             break;
-          if (frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-            //printf("  - fps: %d/%d\n", 
-            //       frmival.discrete.denominator,frmival.discrete.numerator);
-            ret->head = 
-              realloc(ret->head, (ret->length + 1) * sizeof (camera_format_t));
-            ret->head[ret->length].format = fmt.pixelformat;
-            ret->head[ret->length].width = frmsize.discrete.width;
-            ret->head[ret->length].height = frmsize.discrete.height;
-            ret->head[ret->length].interval.numerator =
-              frmival.discrete.numerator;
-            ret->head[ret->length].interval.denominator =
-              frmival.discrete.denominator;
-            ret->length++;
-          } else {
-            //printf("  - fps: %d/%d-%d/%d\n", 
-            //       frmival.stepwise.min.denominator,
-            //       frmival.stepwise.min.numerator,
-            //       frmival.stepwise.max.denominator,
-            //       frmival.stepwise.max.numerator);
-            // TBD: when stepwize
+          }
+          if (frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) { // discrete interval
+            //printf("\t- fps: %d/%d\n",
+            //       frmival.discrete.numerator,frmival.discrete.denominator);
+            add_format(ret, fmt.pixelformat, frmival.width, frmival.height, frmival.discrete.numerator, frmival.discrete.denominator);
+          } else { // stepwise intervals
+            uint8_t max = frmival.stepwise.max.numerator/frmival.stepwise.max.denominator;
+            uint8_t min = frmival.stepwise.min.numerator/frmival.stepwise.min.denominator;
+            for (uint8_t i = 0; ; i++) {
+              if (frame_intervals[i] >= min && frame_intervals[i] <= max) {
+                //printf("\t- fps: %d\n",frame_intervals[i]);
+                add_format(ret, fmt.pixelformat, frmsize.discrete.width, frmsize.discrete.height, frame_intervals[i], 1 /* denominator */);
+              }
+            }
           }
         }
       } else {
-        //printf("- w: %d-%d, h: %d-%d\n", 
-        //       frmsize.stepwise.min_width, frmsize.stepwise.max_width,
-        //      frmsize.stepwise.min_height, frmsize.stepwise.max_height);
-        // TBD: when stepwize
+        for (uint8_t l = 0; l < sizeof(frame_sizes) / sizeof(frame_size_t); l++) { // step wise frame sizes
+          //printf("checking frameintervals for stepwise %dx%dpx\n", frame_sizes[l].width, frame_sizes[l].height);
+          for (uint32_t k = 0; ; k++) { // step wise frame intervals
+            struct v4l2_frmivalenum frmival;
+            memset(&frmival, 0, sizeof frmival);
+            frmival.index = k;
+            frmival.pixel_format = fmt.pixelformat;
+            frmival.width = frame_sizes[l].width;
+            frmival.height = frame_sizes[l].height;
+            if (v4l2_ioctl(camera->fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmival) != -1) {
+              if (frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
+                //printf("\t- fps: %d/%d\n",
+                    //       frmival.discrete.numerator,frmival.discrete.denominator);
+                add_format(ret, fmt.pixelformat, frmival.width, frmival.height, frmival.discrete.numerator, frmival.discrete.denominator);
+              } else {
+                uint8_t min = frmival.stepwise.max.denominator/frmival.stepwise.max.numerator;
+                uint8_t max = frmival.stepwise.min.denominator/frmival.stepwise.min.numerator;
+                for (uint8_t m = 0; m < sizeof(frame_intervals) / sizeof(uint8_t); m++) {
+                  if (frame_intervals[m] >= min && frame_intervals[m] <= max) {
+                    //printf("\t- fps: %d\n",frame_intervals[i]);
+                    add_format(ret, fmt.pixelformat, frmival.width, frmival.height, 1, frame_intervals[m] /* denominator */);
+                  }
+                }
+                break;
+              }
+            } else {
+              //printf("frameintervals ioctl failed\n");
+              break;
+            }
+          }
+        }
       }
     }
-    
   }
+
   return ret;
 }
+
+void add_format(camera_formats_t* ret, uint32_t format, uint32_t width, uint32_t height, uint32_t numerator, uint32_t denominator)
+{
+  //printf("\tadding format: %d w:%d h:%d n:%d d:%d\n", format, width, height, numerator, denominator);
+  ret->head = realloc(ret->head, (ret->length + 1) * sizeof (camera_format_t));
+  ret->head[ret->length].format = format;
+  ret->head[ret->length].width = width;
+  ret->head[ret->length].height = height;
+  ret->head[ret->length].interval.numerator = numerator;
+  ret->head[ret->length].interval.denominator = denominator;
+  ret->length++;
+}
+
 void camera_formats_delete(camera_formats_t* formats)
 {
   free(formats->head);
