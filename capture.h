@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <time.h>
 #include <linux/videodev2.h>
 #ifndef __V4L2_COMMON__
 #  define CAMERA_OLD_VIDEODEV2_H
