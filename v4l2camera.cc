@@ -306,6 +306,9 @@ namespace {
       Nan::ThrowError(cameraError(camera));
       return;
     }
+    if (info.Length() < 1) {
+      return;
+    }
     Watch(info, StopCB);
   }
   
