@@ -1,6 +1,7 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
+#include <time.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
