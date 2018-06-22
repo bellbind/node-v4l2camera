@@ -1,6 +1,7 @@
 {
-    "name": "v4l2camera",
-    "version": "1.0.4",
+    "name": "@barco/v4l2camera",
+    "version": "1.0.8",
+    "publishConfig": { "registry": "https://bin.barco.com/artifactory/api/npm/npm-local"},
     "description": "Capturing images from USB(UVC) webcam on linux machines",
     "keywords": [
         "linux",

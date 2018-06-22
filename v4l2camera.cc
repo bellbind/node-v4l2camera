@@ -246,16 +246,16 @@ namespace {
     }
     return formats;
   }
-  
+
   NAN_METHOD(Camera::New) {
-    if (!info.IsConstructCall()) {
-      // [NOTE] generic recursive call with `new`
-      std::vector<v8::Local<v8::Value>> args(info.Length());
-      for (auto i = std::size_t{0}; i < args.size(); ++i) args[i] = info[i];
-      auto inst = Nan::NewInstance(info.Callee(), args.size(), args.data());
-      if (!inst.IsEmpty()) info.GetReturnValue().Set(inst.ToLocalChecked());
-      return;
-    }
+    // if (!info.IsConstructCall()) {
+    //   // [NOTE] generic recursive call with `new`
+    //   std::vector<v8::Local<v8::Value>> args(info.Length());
+    //   for (auto i = std::size_t{0}; i < args.size(); ++i) args[i] = info[i];
+    //   auto inst = Nan::NewInstance(info.Callee(), args.size(), args.data());
+    //   if (!inst.IsEmpty()) info.GetReturnValue().Set(inst.ToLocalChecked());
+    //   return;
+    // }
 
     if (info.Length() < 1) {
       Nan::ThrowTypeError("argument required: device");
