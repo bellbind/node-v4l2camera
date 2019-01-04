@@ -75,6 +75,7 @@ camera_formats_t* camera_formats_new(const camera_t* camera);
 void camera_formats_delete(camera_formats_t* formats);
 bool camera_config_get(camera_t* camera, camera_format_t* format);
 bool camera_config_set(camera_t* camera, const camera_format_t* format);
+void add_format(camera_formats_t* ret, uint32_t format, uint32_t width, uint32_t height, uint32_t numerator, uint32_t denominator);
 
 
 typedef enum {
