@@ -71,10 +71,8 @@ Capturing API (frame access)
 
 - `cam.frameRaw()`: Get the cached raw frame as `Uint8Array`
    (YUYU frame is array of YUYV..., MJPG frame is single JPEG compressed data)
-- `cam.toYUYV()`: Get the cached frame as `Uint8Array` of pixels YUYVYUYV...
-   (will be deprecated method)
-- `cam.toRGB()`: Get the cached frame as `Uint8Array` of pixels RGBRGB...
-   (will be deprecated method)
+- `cam.reloadControls()`: Reload the `cam.controls` array
+   (use if you need to update the flags)
 
 Capturing API (camera frame info)
 

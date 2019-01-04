@@ -5,10 +5,39 @@
 
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <linux/videodev2.h>
+#include <libv4l2.h>
 
+typedef struct {
+	uint16_t width;
+	uint16_t height;
+} frame_size_t;
+
+frame_size_t frame_sizes[] = {
+   { 640, 480 }
+  ,{ 800, 600 }
+  ,{ 1024, 768 }
+  ,{ 1440, 1080 }
+  //,{ 1920, 1440 }
+  ,{ 1024, 576 }
+  ,{ 1280, 720 }
+  ,{ 1920, 1080 }
+  //,{ 2560, 1440 }
+  //,{ 3840, 2160 }
+};
+
+uint8_t frame_intervals[] = {
+  5,
+  10,
+  15,
+  20,
+  30,
+  //45,
+  //60,
+  //90,
+  //120
+};
 
 static void log_stderr(camera_log_t type, const char* msg, void* pointer) {
   (void) pointer;
@@ -25,12 +54,12 @@ static void log_stderr(camera_log_t type, const char* msg, void* pointer) {
   }
 }
 
-static bool error(camera_t* camera, const char * msg)
+static bool error(const camera_t* camera, const char * msg)
 {
   camera->context.log(CAMERA_ERROR, msg, camera->context.pointer);
   return false;
 }
-static bool failure(camera_t* camera, const char * msg)
+static bool failure(const camera_t* camera, const char * msg)
 {
   camera->context.log(CAMERA_FAIL, msg, camera->context.pointer);
   return false;
@@ -39,7 +68,7 @@ static bool failure(camera_t* camera, const char * msg)
 static int xioctl(int fd, unsigned long int request, void* arg)
 {
   for (int i = 0; i < 100; i++) {
-    int r = ioctl(fd, request, arg);
+    int r = v4l2_ioctl(fd, request, arg);
     if (r != -1 || errno != EINTR) return r;
   }
   return -1;
@@ -49,7 +78,7 @@ static int xioctl(int fd, unsigned long int request, void* arg)
 
 camera_t* camera_open(const char * device)
 {
-  int fd = open(device, O_RDWR | O_NONBLOCK, 0);
+  int fd = v4l2_open(device, O_RDWR | O_NONBLOCK, 0);
   if (fd == -1) return NULL;
   
   camera_t* camera = malloc(sizeof (camera_t));
@@ -69,7 +98,7 @@ camera_t* camera_open(const char * device)
 static void free_buffers(camera_t* camera, size_t count)
 {
   for (size_t i = 0; i < count; i++) {
-    munmap(camera->buffers[i].start, camera->buffers[i].length);
+    v4l2_munmap(camera->buffers[i].start, camera->buffers[i].length);
   }
   free(camera->buffers);
   camera->buffers = NULL;
@@ -126,7 +155,7 @@ static bool camera_buffer_prepare(camera_t* camera)
     if (buf.length > buf_max) buf_max = buf.length;
     camera->buffers[i].length = buf.length;
     camera->buffers[i].start = 
-      mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, 
+      v4l2_mmap(NULL, buf.length, PROT_READ | PROT_WRITE, MAP_SHARED, 
            camera->fd, buf.m.offset);
     if (camera->buffers[i].start == MAP_FAILED) {
       free_buffers(camera, i);
@@ -213,7 +242,7 @@ bool camera_close(camera_t* camera)
     camera_stop(camera);
   }
   for (int i = 0; i < 10; i++) {
-    if (close(camera->fd) != -1) break;
+    if (v4l2_close(camera->fd) != -1) break;
   }
   free(camera);
   return true;
@@ -365,59 +394,93 @@ camera_formats_t*  camera_formats_new(const camera_t* camera)
     memset(&fmt, 0, sizeof fmt);
     fmt.index = i;
     fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-    if (ioctl(camera->fd, VIDIOC_ENUM_FMT, &fmt) == -1) break;
+    if (v4l2_ioctl(camera->fd, VIDIOC_ENUM_FMT, &fmt) == -1) break;
     //printf("[%s]\n", fmt.description);
     for (uint32_t j = 0; ; j++) {
       struct v4l2_frmsizeenum frmsize;
       memset(&frmsize, 0, sizeof frmsize);
       frmsize.index = j;
       frmsize.pixel_format = fmt.pixelformat;
-      if (ioctl(camera->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize) == -1) break;
-      if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
-        //printf("- w: %d, h: %d\n", 
-        //       frmsize.discrete.width, frmsize.discrete.height);
-        for (uint32_t k = 0; ; k++) {
+      if (v4l2_ioctl(camera->fd, VIDIOC_ENUM_FRAMESIZES, &frmsize) == -1) break;
+      if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) { // discrete framesizes
+        for (uint32_t k = 0; ; k++) { // discrete frame sizes
           struct v4l2_frmivalenum frmival;
           memset(&frmival, 0, sizeof frmival);
           frmival.index = k;
           frmival.pixel_format = fmt.pixelformat;
           frmival.width = frmsize.discrete.width;
           frmival.height = frmsize.discrete.height;
-          if (ioctl(camera->fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmival) == -1) 
+          //printf("checking frameintervals for discrete size: %dx%dpx\n", frmival.width, frmival.height);
+          if (v4l2_ioctl(camera->fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmival) == -1) {
+            //printf("frameintervals ioctl failed\n");
             break;
-          if (frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
-            //printf("  - fps: %d/%d\n", 
-            //       frmival.discrete.denominator,frmival.discrete.numerator);
-            ret->head = 
-              realloc(ret->head, (ret->length + 1) * sizeof (camera_format_t));
-            ret->head[ret->length].format = fmt.pixelformat;
-            ret->head[ret->length].width = frmsize.discrete.width;
-            ret->head[ret->length].height = frmsize.discrete.height;
-            ret->head[ret->length].interval.numerator =
-              frmival.discrete.numerator;
-            ret->head[ret->length].interval.denominator =
-              frmival.discrete.denominator;
-            ret->length++;
-          } else {
-            //printf("  - fps: %d/%d-%d/%d\n", 
-            //       frmival.stepwise.min.denominator,
-            //       frmival.stepwise.min.numerator,
-            //       frmival.stepwise.max.denominator,
-            //       frmival.stepwise.max.numerator);
-            // TBD: when stepwize
+          }
+          if (frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) { // discrete interval
+            //printf("\t- fps: %d/%d\n",
+            //       frmival.discrete.numerator,frmival.discrete.denominator);
+            add_format(ret, fmt.pixelformat, frmival.width, frmival.height, frmival.discrete.numerator, frmival.discrete.denominator);
+          } else { // stepwise intervals
+            uint8_t max = frmival.stepwise.max.numerator/frmival.stepwise.max.denominator;
+            uint8_t min = frmival.stepwise.min.numerator/frmival.stepwise.min.denominator;
+            for (uint8_t i = 0; ; i++) {
+              if (frame_intervals[i] >= min && frame_intervals[i] <= max) {
+                //printf("\t- fps: %d\n",frame_intervals[i]);
+                add_format(ret, fmt.pixelformat, frmsize.discrete.width, frmsize.discrete.height, frame_intervals[i], 1 /* denominator */);
+              }
+            }
           }
         }
       } else {
-        //printf("- w: %d-%d, h: %d-%d\n", 
-        //       frmsize.stepwise.min_width, frmsize.stepwise.max_width,
-        //      frmsize.stepwise.min_height, frmsize.stepwise.max_height);
-        // TBD: when stepwize
+        for (uint8_t l = 0; l < sizeof(frame_sizes) / sizeof(frame_size_t); l++) { // step wise frame sizes
+          //printf("checking frameintervals for stepwise %dx%dpx\n", frame_sizes[l].width, frame_sizes[l].height);
+          for (uint32_t k = 0; ; k++) { // step wise frame intervals
+            struct v4l2_frmivalenum frmival;
+            memset(&frmival, 0, sizeof frmival);
+            frmival.index = k;
+            frmival.pixel_format = fmt.pixelformat;
+            frmival.width = frame_sizes[l].width;
+            frmival.height = frame_sizes[l].height;
+            if (v4l2_ioctl(camera->fd, VIDIOC_ENUM_FRAMEINTERVALS, &frmival) != -1) {
+              if (frmival.type == V4L2_FRMIVAL_TYPE_DISCRETE) {
+                //printf("\t- fps: %d/%d\n",
+                    //       frmival.discrete.numerator,frmival.discrete.denominator);
+                add_format(ret, fmt.pixelformat, frmival.width, frmival.height, frmival.discrete.numerator, frmival.discrete.denominator);
+              } else {
+                uint8_t min = frmival.stepwise.max.denominator/frmival.stepwise.max.numerator;
+                uint8_t max = frmival.stepwise.min.denominator/frmival.stepwise.min.numerator;
+                for (uint8_t m = 0; m < sizeof(frame_intervals) / sizeof(uint8_t); m++) {
+                  if (frame_intervals[m] >= min && frame_intervals[m] <= max) {
+                    //printf("\t- fps: %d\n",frame_intervals[i]);
+                    add_format(ret, fmt.pixelformat, frmival.width, frmival.height, 1, frame_intervals[m] /* denominator */);
+                  }
+                }
+                break;
+              }
+            } else {
+              //printf("frameintervals ioctl failed\n");
+              break;
+            }
+          }
+        }
       }
     }
-    
   }
+
   return ret;
 }
+
+void add_format(camera_formats_t* ret, uint32_t format, uint32_t width, uint32_t height, uint32_t numerator, uint32_t denominator)
+{
+  //printf("\tadding format: %d w:%d h:%d n:%d d:%d\n", format, width, height, numerator, denominator);
+  ret->head = realloc(ret->head, (ret->length + 1) * sizeof (camera_format_t));
+  ret->head[ret->length].format = format;
+  ret->head[ret->length].width = width;
+  ret->head[ret->length].height = height;
+  ret->head[ret->length].interval.numerator = numerator;
+  ret->head[ret->length].interval.denominator = denominator;
+  ret->length++;
+}
+
 void camera_formats_delete(camera_formats_t* formats)
 {
   free(formats->head);
@@ -462,8 +525,10 @@ camera_controls_menus(const camera_t* camera, camera_control_t* control)
     memset(&qmenu, 0, sizeof qmenu);
     qmenu.id = control->id;
     qmenu.index = mindex;
-    if (ioctl(camera->fd, VIDIOC_QUERYMENU, &qmenu) == 0) {
+    if (v4l2_ioctl(camera->fd, VIDIOC_QUERYMENU, &qmenu) == 0) {
       copy(&control->menus.head[mindex], &qmenu);
+    } else {
+      error(camera, "VIDIOC_QUERYMENU");
     }
   }
 }
@@ -471,12 +536,11 @@ static camera_control_t*
 camera_controls_query(const camera_t* camera, camera_control_t* control_list)
 {
   camera_control_t* control_list_last = control_list;
+  struct v4l2_queryctrl qctrl;
   
-  for (uint32_t cid = V4L2_CID_USER_BASE; cid < V4L2_CID_LASTP1; cid++) {
-    struct v4l2_queryctrl qctrl;
-    memset(&qctrl, 0, sizeof qctrl);
-    qctrl.id = cid;
-    if (ioctl(camera->fd, VIDIOC_QUERYCTRL, &qctrl) == -1) continue;
+  for (qctrl.id = V4L2_CTRL_FLAG_NEXT_CTRL;
+       v4l2_ioctl(camera->fd, VIDIOC_QUERYCTRL, &qctrl) == 0;
+       qctrl.id |= V4L2_CTRL_FLAG_NEXT_CTRL) {
     camera_control_t* control = control_list_last++;
     control->id = qctrl.id;
     memcpy(control->name, qctrl.name, sizeof qctrl.name);
@@ -500,7 +564,7 @@ camera_controls_query(const camera_t* camera, camera_control_t* control_list)
 }
 camera_controls_t* camera_controls_new(const camera_t* camera)
 {
-  camera_control_t control_list[V4L2_CID_LASTP1 - V4L2_CID_USER_BASE];
+  camera_control_t control_list[V4L2_CID_MAX_CTRLS]; // It can't be a higher qty :P
   camera_control_t* control_list_last = 
     camera_controls_query(camera, control_list);
   camera_controls_t* controls = malloc(sizeof (camera_controls_t));
@@ -522,11 +586,22 @@ void camera_controls_delete(camera_controls_t* controls)
 
 bool camera_control_get(camera_t* camera, uint32_t id, int32_t* value)
 {
+  int ioctl_result;
   struct v4l2_control ctrl;
   ctrl.id = id;
   ctrl.value = 0;
-  if (ioctl(camera->fd, VIDIOC_G_CTRL, &ctrl) == -1) 
+
+  for(int i = 0; i < 100; i++) {
+    ioctl_result = v4l2_ioctl(camera->fd, VIDIOC_G_CTRL, &ctrl);
+    if (ioctl_result != -1)
+      break;
+    else if(errno != EIO)
+      return error(camera, "VIDIOC_G_CTRL");
+  }
+
+  if(ioctl_result == -1)
     return error(camera, "VIDIOC_G_CTRL");
+
   *value = ctrl.value;
   return true;
 }
@@ -536,7 +611,7 @@ bool camera_control_set(camera_t* camera, uint32_t id, int32_t value)
   struct v4l2_control ctrl;
   ctrl.id = id;
   ctrl.value = value;
-  if (ioctl(camera->fd, VIDIOC_S_CTRL, &ctrl) == -1) 
+  if (v4l2_ioctl(camera->fd, VIDIOC_S_CTRL, &ctrl) == -1)
     return error(camera, "VIDIOC_S_CTRL");
   return true;
 }
