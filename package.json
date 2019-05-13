@@ -9,9 +9,9 @@
         "v4l2",
         "video4linux2"
     ],
-    "homepage": "https://github.com/bellbind/node-v4l2camera",
+    "homepage": "https://github.com/silence48/node-v4l2camera",
     "bugs": {
-        "url": "https://github.com/bellbind/node-v4l2camera/issues"
+        "url": "https://github.com/silence48/node-v4l2camera/issues"
     },
     "license": "(MIT OR LGPL-3.0)",
     "author": "bellbind <bellbind@gmail.com> (http://bellbind.tumblr.com)",
@@ -21,7 +21,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "http://github.com/bellbind/node-v4l2camera.git"
+        "url": "http://github.com/silence48/node-v4l2camera.git"
     },
     "devDependencies": {
         "pngjs": "*",
