@@ -57,6 +57,8 @@ camera_t* camera_open(const char * device)
   camera->initialized = false;
   camera->width = 0;
   camera->height = 0;
+  camera->capabilities = 0;
+  camera->device_capabilities = 0;
   camera->buffer_count = 0;
   camera->buffers = NULL;
   camera->head.length = 0;
@@ -77,12 +79,12 @@ static void free_buffers(camera_t* camera, size_t count)
 }
 
 static bool camera_init(camera_t* camera) {
-  struct v4l2_capability cap;
-  if (xioctl(camera->fd, VIDIOC_QUERYCAP, &cap) == -1)
-    return error(camera, "VIDIOC_QUERYCAP");
-  if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE))
+  if (camera->initialized)
+    return true;
+
+  if (!(camera->capabilities & V4L2_CAP_VIDEO_CAPTURE))
     return failure(camera, "no capture");
-  if (!(cap.capabilities & V4L2_CAP_STREAMING))
+  if (!(camera->capabilities & V4L2_CAP_STREAMING))
     return failure(camera, "no streaming");
 
   struct v4l2_cropcap cropcap;
@@ -98,6 +100,70 @@ static bool camera_init(camera_t* camera) {
   }
   camera->initialized = true;
   return true;
+}
+
+char** cap2s(unsigned cap)
+{
+	char **caps = calloc (sizeof(char*), 128);
+  int i = 0;
+
+	if (cap & V4L2_CAP_VIDEO_CAPTURE)
+		caps[i++] = "Video Capture";
+	if (cap & V4L2_CAP_VIDEO_CAPTURE_MPLANE)
+	 	caps[i++] = "Video Capture Multiplanar";
+	if (cap & V4L2_CAP_VIDEO_OUTPUT)
+		caps[i++] = "Video Output";
+	if (cap & V4L2_CAP_VIDEO_OUTPUT_MPLANE)
+		caps[i++] = "Video Output Multiplanar";
+	if (cap & V4L2_CAP_VIDEO_M2M)
+		caps[i++] = "Video Memory-to-Memory";
+	if (cap & V4L2_CAP_VIDEO_M2M_MPLANE)
+		caps[i++] = "Video Memory-to-Memory Multiplanar";
+	if (cap & V4L2_CAP_VIDEO_OVERLAY)
+		caps[i++] = "Video Overlay";
+	if (cap & V4L2_CAP_VIDEO_OUTPUT_OVERLAY)
+		caps[i++] = "Video Output Overlay";
+	if (cap & V4L2_CAP_VBI_CAPTURE)
+		caps[i++] = "VBI Capture";
+	if (cap & V4L2_CAP_VBI_OUTPUT)
+		caps[i++] = "VBI Output";
+	if (cap & V4L2_CAP_SLICED_VBI_CAPTURE)
+		caps[i++] = "Sliced VBI Capture";
+	if (cap & V4L2_CAP_SLICED_VBI_OUTPUT)
+		caps[i++] = "Sliced VBI Output";
+	if (cap & V4L2_CAP_RDS_CAPTURE)
+		caps[i++] = "RDS Capture";
+	if (cap & V4L2_CAP_RDS_OUTPUT)
+		caps[i++] = "RDS Output";
+	if (cap & V4L2_CAP_SDR_CAPTURE)
+		caps[i++] = "SDR Capture";
+	if (cap & V4L2_CAP_SDR_OUTPUT)
+		caps[i++] = "SDR Output";
+	if (cap & V4L2_CAP_META_CAPTURE)
+		caps[i++] = "Metadata Capture";
+	if (cap & V4L2_CAP_TUNER)
+		caps[i++] = "Tuner";
+	if (cap & V4L2_CAP_TOUCH)
+		caps[i++] = "Touch Device";
+	if (cap & V4L2_CAP_HW_FREQ_SEEK)
+		caps[i++] = "HW Frequency Seek";
+	if (cap & V4L2_CAP_MODULATOR)
+		caps[i++] = "Modulator";
+	if (cap & V4L2_CAP_AUDIO)
+		caps[i++] = "Audio";
+	if (cap & V4L2_CAP_RADIO)
+		caps[i++] = "Radio";
+	if (cap & V4L2_CAP_READWRITE)
+		caps[i++] = "Read/Write";
+	if (cap & V4L2_CAP_ASYNCIO)
+		caps[i++] = "Async I/O";
+	if (cap & V4L2_CAP_STREAMING)
+		caps[i++] = "Streaming";
+	if (cap & V4L2_CAP_EXT_PIX_FORMAT)
+		caps[i++] = "Extended Pix Format";
+	if (cap & V4L2_CAP_DEVICE_CAPS)
+		caps[i++] = "Device Capabilities";
+	return caps;
 }
 
 static bool camera_buffer_prepare(camera_t* camera)
@@ -353,6 +419,17 @@ bool camera_config_set(camera_t* camera, const camera_format_t* format)
   if (!camera_format_set(camera, format)) return false;
   if (!camera_load_settings(camera)) return false;
   return camera_buffer_prepare(camera);
+}
+
+void camera_capabilities(camera_t* camera) {
+  struct v4l2_capability cap;
+  if (xioctl(camera->fd, VIDIOC_QUERYCAP, &cap) == -1)
+    return error(camera, "VIDIOC_QUERYCAP");
+
+  camera->capabilities = cap.capabilities;
+
+  if (cap.capabilities & V4L2_CAP_DEVICE_CAPS) 
+    camera->device_capabilities = cap.device_caps;
 }
 
 camera_formats_t*  camera_formats_new(const camera_t* camera)

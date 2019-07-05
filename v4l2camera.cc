@@ -83,7 +83,7 @@ namespace {
   getUint(const v8::Local<v8::Object>& self, const char* name) {
     return Nan::To<std::uint32_t>(getValue(self, name)).FromJust();
   }
-  
+
   static inline void 
   setValue(const v8::Local<v8::Object>& self, const char* name, 
            const v8::Local<v8::Value>& value) {
@@ -247,6 +247,18 @@ namespace {
     return formats;
   }
 
+  static v8::Local<v8::Object> convertCapabilities(unsigned flags) {
+    char** ccaps = cap2s(flags);
+    size_t len;
+    for (len = 0; ccaps[len] != NULL; len++);
+    auto caps = Nan::New<v8::Array>(len);
+    for (auto i = std::size_t{0}; i < len; ++i) {
+      Nan::Set(caps, i,  Nan::New(ccaps[i]).ToLocalChecked());
+    }
+    free(ccaps);
+    return caps;
+  }
+
   NAN_METHOD(Camera::New) {
     // if (!info.IsConstructCall()) {
     //   // [NOTE] generic recursive call with `new`
@@ -274,9 +286,15 @@ namespace {
     auto self = new Camera;
     self->camera = camera;
     self->Wrap(thisObj);
+    camera_capabilities(camera);
+
     setValue(thisObj, "device", info[0]);
     setValue(thisObj, "formats", cameraFormats(camera));
     setValue(thisObj, "controls", cameraControls(camera));
+    setUint(thisObj, "rawCapabilities", camera->capabilities);
+    setUint(thisObj, "rawDeviceCapabilities", camera->device_capabilities);
+    setValue(thisObj, "capabilities", convertCapabilities(camera->capabilities));
+    setValue(thisObj, "deviceCapabilities", convertCapabilities(camera->device_capabilities));
   }
   
   NAN_METHOD(Camera::Start) {
@@ -291,7 +309,6 @@ namespace {
     info.GetReturnValue().Set(thisObj);
   }
 
-  
   void Camera::StopCB(uv_poll_t* handle, int /*status*/, int /*events*/) {
     auto callCallback = [](CallbackData* data) -> void {
       Nan::HandleScope scope;
