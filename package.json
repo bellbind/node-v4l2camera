@@ -1,6 +1,9 @@
 {
     "name": "v4l2camera",
-    "version": "1.0.4",
+    "version": "1.2.0",
+    "publishConfig": {
+        "registry": "https://bin.barco.com/artifactory/api/npm/npm-local"
+    },
     "description": "Capturing images from USB(UVC) webcam on linux machines",
     "keywords": [
         "linux",
@@ -28,17 +31,18 @@
         "jpeg-js": "*"
     },
     "engines": {
-        "node": ">=4.0.0"
+        "node": ">=10.0.0"
     },
     "scripts": {
         "test": "node test.js",
         "make-c-examples": "make -f c-examples.makefile"
     },
     "os": [
-        "linux"
+        "linux",
+        "android"
     ],
     "dependencies": {
-        "nan": ">=2.3.0"
+        "nan": "^2.14.0"
     },
     "contributors": [
         "Tim Cameron Ryan <id@timryan.org> (https://github.com/tcr)",

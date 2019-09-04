@@ -83,7 +83,7 @@ namespace {
   getUint(const v8::Local<v8::Object>& self, const char* name) {
     return Nan::To<std::uint32_t>(getValue(self, name)).FromJust();
   }
-  
+
   static inline void 
   setValue(const v8::Local<v8::Object>& self, const char* name, 
            const v8::Local<v8::Value>& value) {
@@ -212,7 +212,7 @@ namespace {
     auto denominator = std::uint32_t{0};
     const auto finterval = getValue(format, "interval");
     if (finterval->IsObject()) {
-      const auto interval = finterval->ToObject();
+      const auto interval = finterval->ToObject(Nan::GetCurrentContext()).ToLocalChecked();
       numerator = getUint(interval, "numerator");
       denominator = getUint(interval, "denominator");
     }
@@ -246,16 +246,29 @@ namespace {
     }
     return formats;
   }
-  
-  NAN_METHOD(Camera::New) {
-    if (!info.IsConstructCall()) {
-      // [NOTE] generic recursive call with `new`
-      std::vector<v8::Local<v8::Value>> args(info.Length());
-      for (auto i = std::size_t{0}; i < args.size(); ++i) args[i] = info[i];
-      auto inst = Nan::NewInstance(info.Callee(), args.size(), args.data());
-      if (!inst.IsEmpty()) info.GetReturnValue().Set(inst.ToLocalChecked());
-      return;
+
+  static v8::Local<v8::Object> convertCapabilities(unsigned flags) {
+    char** ccaps = cap2s(flags);
+    size_t len;
+    for (len = 0; ccaps[len] != NULL; len++);
+    auto caps = Nan::New<v8::Array>(len);
+    for (auto i = std::size_t{0}; i < len; ++i) {
+      Nan::Set(caps, i,  Nan::New(ccaps[i]).ToLocalChecked());
     }
+    free(ccaps);
+    return caps;
+  }
+
+
+  NAN_METHOD(Camera::New) {
+    // if (!info.IsConstructCall()) {
+    //   // [NOTE] generic recursive call with `new`
+    //   std::vector<v8::Local<v8::Value>> args(info.Length());
+    //   for (auto i = std::size_t{0}; i < args.size(); ++i) args[i] = info[i];
+    //   auto inst = Nan::NewInstance(info.Callee(), args.size(), args.data());
+    //   if (!inst.IsEmpty()) info.GetReturnValue().Set(inst.ToLocalChecked());
+    //   return;
+    // }
 
     if (info.Length() < 1) {
       Nan::ThrowTypeError("argument required: device");
@@ -274,9 +287,15 @@ namespace {
     auto self = new Camera;
     self->camera = camera;
     self->Wrap(thisObj);
+    camera_capabilities(camera);
+
     setValue(thisObj, "device", info[0]);
     setValue(thisObj, "formats", cameraFormats(camera));
     setValue(thisObj, "controls", cameraControls(camera));
+    setUint(thisObj, "rawCapabilities", camera->capabilities);
+    setUint(thisObj, "rawDeviceCapabilities", camera->device_capabilities);
+    setValue(thisObj, "capabilities", convertCapabilities(camera->capabilities));
+    setValue(thisObj, "deviceCapabilities", convertCapabilities(camera->device_capabilities));
   }
   
   NAN_METHOD(Camera::Start) {
@@ -291,7 +310,6 @@ namespace {
     info.GetReturnValue().Set(thisObj);
   }
 
-  
   void Camera::StopCB(uv_poll_t* handle, int /*status*/, int /*events*/) {
     auto callCallback = [](CallbackData* data) -> void {
       Nan::HandleScope scope;
@@ -304,6 +322,9 @@ namespace {
     auto camera = Nan::ObjectWrap::Unwrap<Camera>(info.Holder())->camera;
     if (!camera_stop(camera)) {
       Nan::ThrowError(cameraError(camera));
+      return;
+    }
+    if (info.Length() < 1) {
       return;
     }
     Watch(info, StopCB);
@@ -364,7 +385,7 @@ namespace {
       Nan::ThrowTypeError("argument required: config");
       return;
     }
-    const auto cformat = convertCFormat(info[0]->ToObject());
+    const auto cformat = convertCFormat(info[0]->ToObject(Nan::GetCurrentContext()).ToLocalChecked());
     auto thisObj = info.Holder();
     auto camera = Nan::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
     if (!camera_config_set(camera, &cformat)) {
@@ -381,7 +402,7 @@ namespace {
       Nan::ThrowTypeError("an argument required: id");
       return;
     }
-    const auto id = info[0]->Uint32Value();
+    const auto id = Nan::To<std::uint32_t>(info[0]).FromJust();
     auto camera = Nan::ObjectWrap::Unwrap<Camera>(info.Holder())->camera;
     auto value = std::int32_t{0};
     auto success = bool{camera_control_get(camera, id, &value)};
@@ -397,8 +418,8 @@ namespace {
       Nan::ThrowTypeError("arguments required: id, value");
       return;
     }
-    const auto id = info[0]->Uint32Value();
-    const auto value = info[1]->Int32Value();
+    const auto id = Nan::To<std::uint32_t>(info[0]).FromJust();
+    const auto value = Nan::To<std::int32_t>(info[1]).FromJust();
     auto thisObj = info.Holder();
     auto camera = Nan::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
     auto success = bool{camera_control_set(camera, id, value)};

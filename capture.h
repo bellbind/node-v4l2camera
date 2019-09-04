@@ -1,6 +1,7 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
+#include <time.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -37,6 +38,8 @@ typedef struct {
   uint32_t width;
   uint32_t height;
   size_t buffer_count;
+  uint32_t capabilities;
+  uint32_t device_capabilities;
   camera_buffer_t* buffers;
   camera_buffer_t head;
   camera_context_t context;
@@ -75,6 +78,8 @@ void camera_formats_delete(camera_formats_t* formats);
 bool camera_config_get(camera_t* camera, camera_format_t* format);
 bool camera_config_set(camera_t* camera, const camera_format_t* format);
 
+char** cap2s(unsigned caps);
+void camera_capabilities(camera_t* camera);
 
 typedef enum {
   CAMERA_CTRL_INTEGER = 1,
