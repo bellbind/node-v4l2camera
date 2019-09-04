@@ -212,7 +212,7 @@ namespace {
     auto denominator = std::uint32_t{0};
     const auto finterval = getValue(format, "interval");
     if (finterval->IsObject()) {
-      const auto interval = finterval->ToObject();
+      const auto interval = finterval->ToObject(Nan::GetCurrentContext()).ToLocalChecked();
       numerator = getUint(interval, "numerator");
       denominator = getUint(interval, "denominator");
     }
@@ -258,6 +258,7 @@ namespace {
     free(ccaps);
     return caps;
   }
+
 
   NAN_METHOD(Camera::New) {
     // if (!info.IsConstructCall()) {
@@ -384,7 +385,7 @@ namespace {
       Nan::ThrowTypeError("argument required: config");
       return;
     }
-    const auto cformat = convertCFormat(info[0]->ToObject());
+    const auto cformat = convertCFormat(info[0]->ToObject(Nan::GetCurrentContext()).ToLocalChecked());
     auto thisObj = info.Holder();
     auto camera = Nan::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
     if (!camera_config_set(camera, &cformat)) {
@@ -401,7 +402,7 @@ namespace {
       Nan::ThrowTypeError("an argument required: id");
       return;
     }
-    const auto id = info[0]->Uint32Value();
+    const auto id = Nan::To<std::uint32_t>(info[0]).FromJust();
     auto camera = Nan::ObjectWrap::Unwrap<Camera>(info.Holder())->camera;
     auto value = std::int32_t{0};
     auto success = bool{camera_control_get(camera, id, &value)};
@@ -417,8 +418,8 @@ namespace {
       Nan::ThrowTypeError("arguments required: id, value");
       return;
     }
-    const auto id = info[0]->Uint32Value();
-    const auto value = info[1]->Int32Value();
+    const auto id = Nan::To<std::uint32_t>(info[0]).FromJust();
+    const auto value = Nan::To<std::int32_t>(info[1]).FromJust();
     auto thisObj = info.Holder();
     auto camera = Nan::ObjectWrap::Unwrap<Camera>(thisObj)->camera;
     auto success = bool{camera_control_set(camera, id, value)};

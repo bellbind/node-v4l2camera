@@ -1,7 +1,7 @@
 {
     "name": "@barco/v4l2camera",
-    "version": "1.1.0",
-    "upstreamVersion": "1.0.4", 
+    "version": "1.2.0",
+    "upstreamVersion": "1.0.4",
     "publishConfig": {
         "registry": "https://bin.barco.com/artifactory/api/npm/npm-local"
     },
@@ -32,7 +32,7 @@
         "jpeg-js": "*"
     },
     "engines": {
-        "node": ">=4.0.0"
+        "node": ">=10.0.0"
     },
     "scripts": {
         "test": "node test.js",
@@ -43,7 +43,7 @@
         "android"
     ],
     "dependencies": {
-        "nan": ">=2.3.0"
+        "nan": "^2.14.0"
     },
     "contributors": [
         "Tim Cameron Ryan <id@timryan.org> (https://github.com/tcr)",
